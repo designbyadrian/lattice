@@ -18,22 +18,39 @@ public final class AppCoordinator: @unchecked Sendable {
     /// Bundle IDs that must never be tiled.
     public var globalExcludedApps: Set<BundleID> = []
 
-    /// Stub until P6 Space-type detection: when true, layout hotkeys are no-ops.
+    /// When true, layout hotkeys are no-ops (full-screen Space).
     public private(set) var isActiveSpaceFullscreen: Bool = false
 
     /// Last solved frames (for safe quit / debugging).
     public private(set) var lastFrames: [WindowID: Rect] = [:]
 
+    /// Persisted workspace↔Space binding (mirrored from SpacesControlling).
+    public private(set) var spaceBinding: WorkspaceSpaceBinding = WorkspaceSpaceBinding()
+
+    /// Last workspace number before a switch (for `workspace-back-and-forth`).
+    public private(set) var previousWorkspaceNumber: Int?
+
+    /// HUD stub text when workspace commands are blocked by the safety net.
+    public private(set) var lastHUDMessage: String?
+
+    /// Menu notice stub when Spaces backend is `.currentSpaceOnly`.
+    public var spacesMenuNotice: String? {
+        platform.spacesController.spacesMenuNotice
+    }
+
     private let queue = DispatchQueue(label: "com.designbyadrian.lattice.app-coordinator")
     private var started = false
-
+    private var spacesReconcileDebounce: DispatchWorkItem?
+    private var lastSpaceBindingBeforeFailedAction: WorkspaceSpaceBinding?
     public init(platform: any WindowServerProtocol, config: LatticeConfig = .default) {
         self.platform = platform
         self.config = config
+        self.spaceBinding = platform.spacesController.loadSpaceBinding()
     }
 
     public func reloadConfig(_ config: LatticeConfig) {
         queue.sync { self.config = config }
+        Task { await self.scheduleSpacesReconcile(immediate: true) }
     }
 
     // MARK: - Lifecycle
@@ -46,18 +63,24 @@ public final class AppCoordinator: @unchecked Sendable {
         }
         guard !already else { return }
 
+        spaceBinding = platform.spacesController.loadSpaceBinding()
         platform.startObserving { [weak self] event in
             Task { await self?.handle(event) }
         }
         await reconcile()
+        await runSpacesReconcile()
+        await refreshFullscreenSpaceFlag()
     }
 
     public func stop() {
         platform.stopObserving()
-        queue.sync { started = false }
+        queue.sync {
+            started = false
+            spacesReconcileDebounce?.cancel()
+            spacesReconcileDebounce = nil
+        }
     }
 
-    /// Mark / clear the fullscreen-space stub (P6 replaces with Space type query).
     public func setActiveSpaceFullscreen(_ value: Bool) {
         queue.sync { isActiveSpaceFullscreen = value }
     }
@@ -67,7 +90,27 @@ public final class AppCoordinator: @unchecked Sendable {
         queue.sync { !isActiveSpaceFullscreen }
     }
 
-    // MARK: - Public commands
+    // MARK: - Commands
+
+    /// Dispatch a parsed config / binding command.
+    public func execute(_ command: Command) async {
+        switch command {
+        case .workspace(let target):
+            await switchWorkspace(target)
+        case .workspaceBackAndForth:
+            await workspaceBackAndForth()
+        case .moveWindowToWorkspace(let target, let follow):
+            await moveFocusedWindowToWorkspace(target, follow: follow)
+        case .moveWindowToDisplay(let target, let follow):
+            await moveFocusedWindowToDisplay(target, follow: follow)
+        case .floatAll:
+            await floatAll()
+        case .reloadConfig:
+            break // App shell reloads file then calls reloadConfig(_:)
+        default:
+            break
+        }
+    }
 
     public func floatAll() async {
         guard allowLayoutHotkey() else { return }
@@ -127,7 +170,7 @@ public final class AppCoordinator: @unchecked Sendable {
                 setActiveSpaceFullscreen(true)
             } else {
                 resume(ref, to: .active)
-                await refreshFullscreenSpaceStub()
+                await refreshFullscreenSpaceFlag()
             }
             await applySolvedFrames()
         case .applicationHidden(let pid):
@@ -141,10 +184,150 @@ public final class AppCoordinator: @unchecked Sendable {
             await applySolvedFrames()
         case .screenParametersChanged, .didWake, .activeSpaceDidChange:
             await reconcile()
-            await refreshFullscreenSpaceStub()
+            await scheduleSpacesReconcile(immediate: false)
+            await refreshFullscreenSpaceFlag()
         default:
             break
         }
+    }
+
+    // MARK: - Workspace commands (P6)
+
+    public func switchWorkspace(_ target: WorkspaceTarget) async {
+        if platform.spacesController.spacesBackend == .currentSpaceOnly {
+            queue.sync { lastHUDMessage = SpacesSafetyNetCopy.hudMessage }
+            return
+        }
+        guard let number = await resolveWorkspaceNumber(target) else { return }
+        await activateWorkspace(number, followWindow: nil)
+    }
+
+    public func workspaceBackAndForth() async {
+        if platform.spacesController.spacesBackend == .currentSpaceOnly {
+            queue.sync { lastHUDMessage = SpacesSafetyNetCopy.hudMessage }
+            return
+        }
+        let prev = queue.sync { previousWorkspaceNumber }
+        guard let prev else { return }
+        await activateWorkspace(prev, followWindow: nil)
+    }
+
+    public func moveFocusedWindowToWorkspace(_ target: WorkspaceTarget, follow: Bool) async {
+        if platform.spacesController.spacesBackend == .currentSpaceOnly {
+            queue.sync { lastHUDMessage = SpacesSafetyNetCopy.hudMessage }
+            return
+        }
+        guard let number = await resolveWorkspaceNumber(target) else { return }
+        guard let space = queue.sync(execute: { spaceBinding.binding[number] }) else { return }
+        let windows = await platform.listWindows()
+        // Focused ≈ frontmost managed window on the active display (AX focus arrives via events).
+        guard let focused = windows.first else { return }
+        _ = await platform.spacesController.moveWindowIDs([focused.id], to: space)
+        if follow {
+            await activateWorkspace(number, followWindow: focused)
+        }
+    }
+
+    public func moveFocusedWindowToDisplay(_ target: DisplayTarget, follow: Bool) async {
+        if platform.spacesController.spacesBackend == .currentSpaceOnly {
+            queue.sync { lastHUDMessage = SpacesSafetyNetCopy.hudMessage }
+            return
+        }
+        let displays = await platform.listDisplays()
+        guard displays.count > 1 else { return }
+        let snaps = await platform.spacesController.spaceDisplaySnapshots()
+        let currentUUID = await focusedDisplayUUID() ?? displays[0].uuid
+        guard let idx = displays.firstIndex(where: { $0.uuid == currentUUID }) else { return }
+        let nextIdx: Int
+        switch target {
+        case .next: nextIdx = (idx + 1) % displays.count
+        case .prev: nextIdx = (idx - 1 + displays.count) % displays.count
+        }
+        let dest = displays[nextIdx]
+        let destSnap = snaps.first(where: { $0.uuid == dest.uuid })
+        let destSpace = destSnap?.current
+        let windows = await platform.listWindows()
+        guard let focused = windows.first, let destSpace else { return }
+        _ = await platform.spacesController.moveWindowIDs([focused.id], to: destSpace)
+        if follow {
+            _ = await platform.spacesController.switchToSpace(destSpace, on: dest.uuid)
+            if let wsNum = queue.sync(execute: {
+                spaceBinding.binding.first(where: { $0.value == destSpace })?.key
+            }) {
+                queue.sync { activeWorkspaceNumber[dest.uuid] = wsNum }
+            }
+        }
+        await reconcile()
+    }
+
+    // MARK: - Spaces reconcile
+
+    public func scheduleSpacesReconcile(immediate: Bool) async {
+        if platform.spacesController.switchInFlight { return }
+        if immediate {
+            queue.sync {
+                spacesReconcileDebounce?.cancel()
+                spacesReconcileDebounce = nil
+            }
+            await runSpacesReconcile()
+            return
+        }
+        let work = DispatchWorkItem { [weak self] in
+            Task { await self?.runSpacesReconcile() }
+        }
+        queue.sync {
+            spacesReconcileDebounce?.cancel()
+            spacesReconcileDebounce = work
+        }
+        queue.asyncAfter(deadline: .now() + .seconds(1), execute: work)
+    }
+
+    /// Apply the pure planner until nil / cap. Skips while a Space switch is in flight.
+    public func runSpacesReconcile() async {
+        if platform.spacesController.switchInFlight { return }
+        let plan = queue.sync { config.workspacePlan }
+        var binding = queue.sync { spaceBinding.binding }
+        var owned = queue.sync { spaceBinding.ownedSpaces }
+        var iterations = 0
+
+        while iterations < ReconcilePlanner.defaultIterationCap {
+            let displays = await platform.spacesController.spaceDisplaySnapshots()
+            let occupied = await platform.spacesController.occupiedSpaceIDs()
+            let step = ReconcilePlanner.step(
+                displays: displays,
+                binding: binding,
+                owned: owned,
+                occupied: occupied,
+                plan: plan
+            )
+            binding = step.binding
+            owned = step.owned
+            persistBinding(binding: binding, owned: owned)
+
+            guard let action = step.action else { break }
+
+            lastSpaceBindingBeforeFailedAction = WorkspaceSpaceBinding(binding: binding, ownedSpaces: owned)
+            let ok = await platform.spacesController.performReconcileAction(action)
+            if !ok {
+                // Roll back binding and wait for the next trigger.
+                if let rolled = lastSpaceBindingBeforeFailedAction {
+                    // Keep pre-action binding from disk/memory; drop speculative adopt only on create failure.
+                    _ = rolled
+                }
+                break
+            }
+            if case .create = action {
+                // Newly created Space is owned by Lattice.
+                let after = await platform.spacesController.spaceDisplaySnapshots()
+                let beforeIDs = Set(displays.flatMap { $0.spaces.map(\.id) })
+                let newIDs = Set(after.flatMap { $0.spaces.map(\.id) }).subtracting(beforeIDs)
+                owned.formUnion(newIDs)
+                persistBinding(binding: binding, owned: owned)
+            }
+            iterations += 1
+        }
+
+        await syncActiveWorkspaceNumbersFromCurrentSpaces()
     }
 
     // MARK: - Reconcile / solve
@@ -325,10 +508,82 @@ public final class AppCoordinator: @unchecked Sendable {
         }
     }
 
-    private func refreshFullscreenSpaceStub() async {
+    private func refreshFullscreenSpaceFlag() async {
+        if await platform.spacesController.isActiveSpaceFullscreen() {
+            setActiveSpaceFullscreen(true)
+            return
+        }
         let windows = await platform.listWindows()
         let anyFS = windows.contains(where: \.isFullscreen)
         setActiveSpaceFullscreen(anyFS)
+    }
+
+    private func activateWorkspace(_ number: Int, followWindow: WindowRef?) async {
+        let (binding, previous): ([Int: SpaceID], Int?) = queue.sync {
+            let current = activeWorkspaceNumber.values.first
+            return (spaceBinding.binding, current)
+        }
+        guard let space = binding[number] else { return }
+        let snaps = await platform.spacesController.spaceDisplaySnapshots()
+        let displayUUID = snaps.first(where: { snap in
+            snap.spaces.contains(where: { $0.id == space })
+        })?.uuid ?? snaps.first?.uuid
+        guard let displayUUID else { return }
+
+        queue.sync {
+            if let previous, previous != number {
+                previousWorkspaceNumber = previous
+            }
+            activeWorkspaceNumber[displayUUID] = number
+            lastHUDMessage = nil
+        }
+
+        _ = await platform.spacesController.switchToSpace(space, on: displayUUID)
+        if let followWindow {
+            _ = await platform.spacesController.moveWindowIDs([followWindow.id], to: space)
+        }
+        await reconcile()
+    }
+
+    private func resolveWorkspaceNumber(_ target: WorkspaceTarget) async -> Int? {
+        let (count, current): (Int, Int) = queue.sync {
+            let cur = activeWorkspaceNumber.values.first ?? 1
+            return (config.workspaces, cur)
+        }
+        switch target {
+        case .number(let n):
+            return (1...count).contains(n) ? n : nil
+        case .next:
+            return current >= count ? 1 : current + 1
+        case .prev:
+            return current <= 1 ? count : current - 1
+        }
+    }
+
+    private func persistBinding(binding: [Int: SpaceID], owned: Set<SpaceID>) {
+        let value = WorkspaceSpaceBinding(binding: binding, ownedSpaces: owned)
+        queue.sync { spaceBinding = value }
+        platform.spacesController.saveSpaceBinding(value)
+    }
+
+    private func syncActiveWorkspaceNumbersFromCurrentSpaces() async {
+        let snaps = await platform.spacesController.spaceDisplaySnapshots()
+        let binding = queue.sync { spaceBinding.binding }
+        queue.sync {
+            for snap in snaps {
+                if let number = binding.first(where: { $0.value == snap.current })?.key {
+                    activeWorkspaceNumber[snap.uuid] = number
+                }
+            }
+        }
+    }
+
+    private func focusedDisplayUUID() async -> String? {
+        let windows = await platform.listWindows()
+        guard let focused = windows.first else {
+            return await platform.listDisplays().first?.uuid
+        }
+        return await displayUUID(containing: focused.frame)
     }
 
     private func isExcluded(_ ref: WindowRef) -> Bool {

@@ -7,6 +7,7 @@ public final class FakePlatform: WindowServerProtocol, PermissionsChecking, @unc
     public var displays: [DisplayRef]
     public var isAccessibilityTrusted: Bool
     public var hasScreenRecordingAccess: Bool
+    public let spacesController: any SpacesControlling
 
     /// Recorded `setFrame` calls in order.
     public private(set) var appliedFrames: [(id: UInt32, pid: Int32, frame: CGRectCodable)] = []
@@ -27,13 +28,19 @@ public final class FakePlatform: WindowServerProtocol, PermissionsChecking, @unc
         ],
         experimentalFlags: ExperimentalFlags = .default,
         isAccessibilityTrusted: Bool = true,
-        hasScreenRecordingAccess: Bool = false
+        hasScreenRecordingAccess: Bool = false,
+        spacesController: FakeSpacesController? = nil
     ) {
         self.windows = windows
         self.displays = displays
         self.experimentalFlags = experimentalFlags
         self.isAccessibilityTrusted = isAccessibilityTrusted
         self.hasScreenRecordingAccess = hasScreenRecordingAccess
+        self.spacesController = spacesController ?? FakeSpacesController()
+    }
+
+    public var fakeSpaces: FakeSpacesController {
+        spacesController as! FakeSpacesController
     }
 
     public func requestAccessibilityTrust(prompt: Bool) -> Bool {

@@ -1,4 +1,5 @@
 import Foundation
+import LayoutModel
 
 /// Config package: Dinky-compatible TOML schema, Lattice-owned parser.
 public enum ConfigModule {
@@ -36,6 +37,8 @@ public struct LatticeConfig: Sendable, Equatable {
     public var modes: [String: ModeConfig]
     public var borders: BordersConfig
     public var focusFollowsMouse: FocusFollowsMouseConfig
+    /// `[workspace-to-display]` patterns (unlisted → main).
+    public var workspaceToDisplay: [Int: [DisplayPattern]]
 
     public init(
         startAtLogin: Bool = true,
@@ -48,7 +51,8 @@ public struct LatticeConfig: Sendable, Equatable {
         modifiers: ModifiersConfig = .default,
         modes: [String: ModeConfig]? = nil,
         borders: BordersConfig = .default,
-        focusFollowsMouse: FocusFollowsMouseConfig = .default
+        focusFollowsMouse: FocusFollowsMouseConfig = .default,
+        workspaceToDisplay: [Int: [DisplayPattern]] = [:]
     ) {
         self.startAtLogin = startAtLogin
         self.workspaces = workspaces
@@ -61,6 +65,7 @@ public struct LatticeConfig: Sendable, Equatable {
         self.modes = modes ?? [DefaultBindings.modeName: DefaultBindings.mainMode()]
         self.borders = borders
         self.focusFollowsMouse = focusFollowsMouse
+        self.workspaceToDisplay = workspaceToDisplay
     }
 
     public static let `default` = LatticeConfig()
@@ -68,5 +73,10 @@ public struct LatticeConfig: Sendable, Equatable {
     /// Bindings for the named mode (defaults to `main`).
     public func mode(named name: String = DefaultBindings.modeName) -> ModeConfig? {
         modes[name]
+    }
+
+    /// Plan consumed by the P6 reconcile planner.
+    public var workspacePlan: WorkspacePlan {
+        WorkspacePlan(count: workspaces, workspaceToDisplay: workspaceToDisplay)
     }
 }

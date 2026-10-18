@@ -7,6 +7,7 @@ import Platform
 public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
     public var experimentalFlags: ExperimentalFlags
     public let permissions: MacPermissions
+    public let spacesController: any SpacesControlling
 
     private let writer: MacWindowWriter
     private let workspaceObservers = MacWorkspaceObservers()
@@ -17,11 +18,17 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
     public init(
         experimentalFlags: ExperimentalFlags = .default,
         permissions: MacPermissions = MacPermissions(),
-        writer: MacWindowWriter = .shared
+        writer: MacWindowWriter = .shared,
+        spacesController: MacSpacesController? = nil
     ) {
         self.experimentalFlags = experimentalFlags
         self.permissions = permissions
         self.writer = writer
+        self.spacesController = spacesController ?? MacSpacesController()
+    }
+
+    public var macSpaces: MacSpacesController? {
+        spacesController as? MacSpacesController
     }
 
     public func listWindows() async -> [Platform.WindowRef] {

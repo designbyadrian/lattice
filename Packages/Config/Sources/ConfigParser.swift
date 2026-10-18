@@ -1,4 +1,5 @@
 import Foundation
+import LayoutModel
 import enum Deserializer.TOMLDeserializer
 
 /// Parses TOML into `LatticeConfig` with unknown-key and unsupported-feature errors.
@@ -128,9 +129,10 @@ public enum ConfigParser {
             catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
 
-        // Stub-validate known deferred tables so unknown nested keys still fail.
         if let v = table["workspace-to-display"] {
-            errors.append(contentsOf: stubTableKeys(v, path: "workspace-to-display", allowed: nil))
+            do { config.workspaceToDisplay = try parseWorkspaceToDisplay(v, workspaces: config.workspaces) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["animations"] {
             errors.append(contentsOf: stubTableKeys(
@@ -419,6 +421,60 @@ public enum ConfigParser {
             }
         }
         return errors
+    }
+
+    private static func parseWorkspaceToDisplay(
+        _ value: Any,
+        workspaces: Int
+    ) throws -> [Int: [DisplayPattern]] {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "workspace-to-display")
+        }
+        var result: [Int: [DisplayPattern]] = [:]
+        var errors: [ConfigError] = []
+        for (key, raw) in table {
+            guard let number = Int(key), number >= 1, number <= workspaces else {
+                errors.append(ConfigError(
+                    "workspace number must be in 1…\(workspaces)",
+                    keyPath: "workspace-to-display.\(key)"
+                ))
+                continue
+            }
+            do {
+                result[number] = try parseDisplayPatterns(raw, keyPath: "workspace-to-display.\(key)")
+            } catch let e as ConfigError {
+                errors.append(e)
+            }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return result
+    }
+
+    private static func parseDisplayPatterns(_ value: Any, keyPath: String) throws -> [DisplayPattern] {
+        if let s = value as? String {
+            return [try parseOneDisplayPattern(s, keyPath: keyPath)]
+        }
+        if let arr = value as? [Any] {
+            return try arr.map { item in
+                guard let s = item as? String else {
+                    throw ConfigError.badType("string", keyPath: keyPath)
+                }
+                return try parseOneDisplayPattern(s, keyPath: keyPath)
+            }
+        }
+        throw ConfigError.badType("string or array of strings", keyPath: keyPath)
+    }
+
+    private static func parseOneDisplayPattern(_ raw: String, keyPath: String) throws -> DisplayPattern {
+        switch raw.lowercased() {
+        case "main": return .main
+        case "secondary": return .secondary
+        default:
+            guard !raw.isEmpty else {
+                throw ConfigError("empty display pattern", keyPath: keyPath)
+            }
+            return .nameSubstring(raw)
+        }
     }
 
     private static func stubTableKeys(

@@ -40,11 +40,12 @@ let package = Package(
         ),
         .target(
             name: "Platform",
+            dependencies: ["LayoutModel"],
             path: "Packages/Platform/Sources"
         ),
         .testTarget(
             name: "PlatformTests",
-            dependencies: ["Platform"],
+            dependencies: ["Platform", "LayoutModel"],
             path: "Packages/Platform/Tests",
             resources: [
                 .copy("Fixtures")
@@ -57,7 +58,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PlatformMacTests",
-            dependencies: ["PlatformMac", "Platform", "Config"],
+            dependencies: ["PlatformMac", "Platform", "LayoutModel", "Config"],
             path: "Packages/PlatformMac/Tests"
         ),
         .target(

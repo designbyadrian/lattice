@@ -4,6 +4,9 @@ import Foundation
 public protocol WindowServerProtocol: AnyObject, Sendable {
     var experimentalFlags: ExperimentalFlags { get set }
 
+    /// Spaces backend (P6). May be a stub that always reports `.currentSpaceOnly`.
+    var spacesController: any SpacesControlling { get }
+
     // MARK: Read
 
     func listWindows() async -> [WindowRef]
