@@ -9,11 +9,15 @@ final class SettingsWindowController: NSWindowController {
     private var appendHandler: (() -> Void)?
     private var reloadHandler: (() -> Void)?
 
-    convenience init(
+    init(
         configURL: URL,
         onAppendRule: @escaping () -> Void,
         onReload: @escaping () -> Void
     ) {
+        self.configURL = configURL
+        self.appendHandler = onAppendRule
+        self.reloadHandler = onReload
+
         let window = NSWindow(
             contentRect: NSRect(x: 0, y: 0, width: 640, height: 480),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
@@ -22,12 +26,14 @@ final class SettingsWindowController: NSWindowController {
         )
         window.title = "Lattice Settings"
         window.center()
-        self.init(window: window)
-        self.configURL = configURL
-        self.appendHandler = onAppendRule
-        self.reloadHandler = onReload
+        super.init(window: window)
         buildUI()
         reloadText()
+    }
+
+    @available(*, unavailable)
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
     }
 
     private func buildUI() {
