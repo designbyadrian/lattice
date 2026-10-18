@@ -78,6 +78,16 @@ public enum ClassifiableEventKind: Sendable, Equatable {
     case other
 }
 
+/// Hit result from the pure tap classifier (AX resolved async after swallow decisions).
+public enum TapHitKind: String, Sendable, Equatable {
+    case pass
+    case bareDesktop
+    case titleBar
+    case titleBarControl
+    case greenButton
+    case content
+}
+
 /// Pure event shape for `EventClassifier` (no CGEvent in the hot path of tests).
 public struct ClassifiableEvent: Sendable, Equatable {
     public var kind: ClassifiableEventKind
@@ -86,16 +96,32 @@ public struct ClassifiableEvent: Sendable, Equatable {
     public var flags: ClassifierFlags
     /// True when the pointer is over a foreign app window (for modifier-drag / pinch).
     public var overAppWindow: Bool
+    /// `kCGMouseEventClickState` (1 = single, 2 = double, …).
+    public var clickState: Int
+    /// Cached hit classification for mouse-down (desktop / title / green / …).
+    public var hit: TapHitKind
+    /// True when the window under the pointer is managed and docked (tiled).
+    public var managedDocked: Bool
+    /// True while a Lattice drag is active (Esc cancel).
+    public var dragActive: Bool
 
     public init(
         kind: ClassifiableEventKind,
         key: String? = nil,
         flags: ClassifierFlags = ClassifierFlags(),
-        overAppWindow: Bool = false
+        overAppWindow: Bool = false,
+        clickState: Int = 1,
+        hit: TapHitKind = .pass,
+        managedDocked: Bool = false,
+        dragActive: Bool = false
     ) {
         self.kind = kind
         self.key = key?.lowercased()
         self.flags = flags
         self.overAppWindow = overAppWindow
+        self.clickState = clickState
+        self.hit = hit
+        self.managedDocked = managedDocked
+        self.dragActive = dragActive
     }
 }

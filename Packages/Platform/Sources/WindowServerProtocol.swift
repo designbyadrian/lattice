@@ -10,9 +10,6 @@ public protocol WindowServerProtocol: AnyObject, Sendable {
     /// Display-link (or instant) frame animator.
     var frameAnimator: any FrameAnimating { get }
 
-    /// Overview panel (non-activating). Fake hosts use `FakeOverviewPresenter`.
-    var overviewPresenter: any OverviewPresenting { get }
-
     /// System Reduce Motion preference (Mac reads AppKit; Fake defaults false).
     var accessibilityReduceMotion: Bool { get }
 

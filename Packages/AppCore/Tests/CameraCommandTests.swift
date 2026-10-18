@@ -25,15 +25,18 @@ private func tilingCoordinator(platform: FakePlatform) -> AppCoordinator {
     let platform = FakePlatform(windows: [w1, w2])
     let coordinator = tilingCoordinator(platform: platform)
     await coordinator.start()
+    await coordinator.handle(.windowFocused(w1))
     platform.resetAppliedFrames()
 
     await coordinator.execute(.zoom(.window, toggle: false))
     let ws = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }
-    #expect(ws?.camera.zoom == 1)
+    // Framed window: camera is that leaf's world rect (not home).
+    #expect(ws?.camera != .home)
+    #expect(ws?.camera.edges.width ?? 1 < 1)
 
     await coordinator.execute(.zoom(.all, toggle: false))
     let ws2 = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }
-    #expect(ws2?.camera == .showAll)
+    #expect(ws2?.camera == .home || ws2?.camera == .showAll)
     #expect(platform.setFrameCallCount >= 1)
     coordinator.stop()
 }
@@ -46,19 +49,20 @@ private func tilingCoordinator(platform: FakePlatform) -> AppCoordinator {
     let platform = FakePlatform(windows: [w1])
     let coordinator = tilingCoordinator(platform: platform)
     await coordinator.start()
+    await coordinator.handle(.windowFocused(w1))
 
     await coordinator.execute(.zoom(.window, toggle: false))
     let zoomed = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }?.camera
-    #expect(zoomed?.zoom == 1)
+    #expect(zoomed != .home)
 
     await coordinator.execute(.zoom(.all, toggle: false))
     await coordinator.execute(.history(.back))
     let afterBack = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }?.camera
-    #expect(afterBack?.zoom == 1)
+    #expect(afterBack == zoomed)
 
     await coordinator.execute(.history(.forward))
     let afterForward = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }?.camera
-    #expect(afterForward == .showAll)
+    #expect(afterForward == .home || afterForward == .showAll)
     coordinator.stop()
 }
 
@@ -77,22 +81,21 @@ private func tilingCoordinator(platform: FakePlatform) -> AppCoordinator {
     coordinator.stop()
 }
 
-@Test func buildOverviewTilesCollapseBelowThreshold() {
-    let a = WindowID(cgWindowID: 1, processID: 1, bundleID: "app.a", titleFingerprint: "A")
-    let b = WindowID(cgWindowID: 2, processID: 2, bundleID: "app.b", titleFingerprint: "B")
-    let root = Node.split(.equal(axis: .horizontal, children: [
-        .panel(PanelNode(window: a)),
-        .panel(PanelNode(window: b)),
-    ]))
-    var ws = Workspace(root: root)
-    ws.camera = .showAll
-    // Tiny display so panels fall below window collapse threshold.
-    let display = Rect(x: 0, y: 0, width: 100, height: 60)
-    let engine = CameraEngine(workspace: ws, displayRect: display)
-    let thresholds = CollapseThresholds(
-        windowMinWidth: 120, windowMinHeight: 80,
-        groupMinWidth: 160, groupMinHeight: 100
+@Test func floatFirstDoesNotTileOnLaunch() async throws {
+    let w1 = WindowRef(
+        id: 8, pid: 18, bundleID: "a.eight", title: "Eight",
+        frame: CGRectCodable(x: 40, y: 40, width: 300, height: 200)
     )
-    let tiles = AppCoordinator.buildOverviewTiles(engine: engine, thresholds: thresholds)
-    #expect(tiles.contains(where: { $0.presentation == "windowTile" || $0.presentation == "groupTile" }))
+    let platform = FakePlatform(windows: [w1])
+    let coordinator = AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: false),
+        layoutStore: .inMemory()
+    )
+    await coordinator.start()
+    let ws = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }
+    #expect(ws?.root.tiledWindowIDs.isEmpty == true)
+    #expect(ws?.floatWins.count == 1)
+    #expect(ws?.floatWins.first?.window.identity.cgWindowID == 8)
+    coordinator.stop()
 }

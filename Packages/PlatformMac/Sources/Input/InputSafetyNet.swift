@@ -1,8 +1,10 @@
 import Foundation
 
 /// Per-OS input capability state (P5a matrix → safety net).
+/// Gated list (ADDENDUM-2 D8): ⌘⇧ frame-rect over apps, Option-pinch over apps,
+/// L/R modifier sides, double-click gestures, green button.
 public struct InputSafetyNetState: Sendable, Equatable {
-    /// When true, disable modifier-drag swallow, pinch-over-apps, and L/R modifier distinction.
+    /// When true, disable P5a-gated input features (stock macOS fallback).
     public var reducedInputFeatures: Bool
     /// Human-readable reason shown in the menu when reduced.
     public var notice: String?
@@ -21,10 +23,11 @@ public struct InputSafetyNetState: Sendable, Equatable {
         )
     }
 
-    /// Features disabled under the safety net (only these three).
     public var disablesModifierDrag: Bool { reducedInputFeatures }
     public var disablesPinchOverApps: Bool { reducedInputFeatures }
     public var disablesLeftRightModifiers: Bool { reducedInputFeatures }
+    public var disablesDoubleClickGestures: Bool { reducedInputFeatures }
+    public var disablesGreenButton: Bool { reducedInputFeatures }
 
     /// Derive state from tap creation / P5a matrix outcome for this OS.
     public static func from(

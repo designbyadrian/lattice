@@ -11,7 +11,46 @@ extension Workspace {
     }
 
     public func inserting(_ window: WindowID, at target: DropTarget) -> (Workspace, LayoutDiff) {
-        inserting(window.nodeID, at: target, leaf: WindowLeaf(id: window.nodeID))
+        // Preserve platform identity (cgWindowID / pid). `WindowLeaf(id:)` uses `.named` and drops it.
+        inserting(window.nodeID, at: target, leaf: WindowLeaf(identity: window))
+    }
+
+    /// Insert a new float into the desktop area (ADDENDUM-2 B1 / ADDENDUM-3 O4).
+    public func insertingFloat(
+        _ window: WindowID,
+        natural: Size?,
+        desktopTile: Rect,
+        cfg: LayoutConfig? = nil
+    ) -> (Workspace, LayoutDiff) {
+        var next = self
+        let layoutCfg = cfg ?? next.layoutConfig
+        if next.contains(window) {
+            if let removed = TreeOps.remove(next.root, windowID: window.nodeID, cfg: layoutCfg) {
+                next.root = removed
+            }
+        }
+        let existing: [(Double, Double)] = next.floatWins.map {
+            let t = desktopTile
+            let x = t.x + $0.frac.x0 * t.width
+            let y = t.y + $0.frac.y0 * t.height
+            return (x, y)
+        }
+        let (frac, _) = TreeOps.newFloatFrac(
+            deskTile: desktopTile,
+            size: natural,
+            existing: existing,
+            cfg: layoutCfg
+        )
+        guard let deskLoc = TreeOps.find(next.root, target: "desktop"),
+              case .desktop(var d) = deskLoc.node else {
+            next.root = .desktop(DesktopArea(floats: [
+                FloatWin(window: WindowLeaf(identity: window), frac: frac)
+            ]))
+            return (next, LayoutDiff(floated: [window.nodeID]))
+        }
+        d.floats.append(FloatWin(window: WindowLeaf(identity: window), frac: frac))
+        next.root = TreeOps.replace(next.root, oldID: d.id, with: .desktop(d))
+        return (next, LayoutDiff(floated: [window.nodeID]))
     }
 
     public func removing(_ window: WindowID) -> (Workspace, LayoutDiff) {
@@ -64,6 +103,7 @@ extension Workspace {
         var next = self
         var diff = LayoutDiff()
         let win = leaf ?? WindowLeaf(id: window)
+        // Keep platform WindowID on the leaf; never rewrite via `id` setter (that uses WindowID.named).
 
         if next.root.contains(window) {
             if let removed = TreeOps.remove(next.root, windowID: window, cfg: next.layoutConfig) {
@@ -74,7 +114,14 @@ extension Workspace {
 
         switch target {
         case .screenEdge(let edge):
-            next.root = TreeOps.insertAtScreenEdge(next.root, edge: edge, new: .window(win), cfg: next.layoutConfig)
+            let inserted = TreeOps.insertAtScreenEdge(next.root, edge: edge, new: .window(win), cfg: next.layoutConfig)
+            // If TreeOps preserved identity but something else didn't, surface it in debug builds.
+            assert(
+                inserted.tiledWindowIDs.contains(where: { $0.nodeID == window && $0.cgWindowID == win.identity.cgWindowID })
+                    || win.identity.cgWindowID == nil,
+                "insertAtScreenEdge dropped WindowID identity for \(window)"
+            )
+            next.root = inserted
             diff.inserted.insert(window)
         case .edge(let nodeID, let edge):
             next.root = TreeOps.insertAtEdge(next.root, targetID: nodeID, edge: edge, new: .window(win), cfg: next.layoutConfig)
@@ -250,20 +297,24 @@ extension Workspace {
         var next = self
         var floated = Set<NodeID>()
         var floats: [FloatWin] = next.floatWins
+        var cascade = 0.0
         for id in ids {
             if let removed = TreeOps.remove(next.root, windowID: id.nodeID, cfg: next.layoutConfig) {
                 next.root = removed
             }
+            let x = (defaultFrame.x + cascade) / 1000
+            let y = (defaultFrame.y + cascade) / 1000
             floats.append(FloatWin(
                 window: WindowLeaf(identity: id),
                 frac: (
-                    defaultFrame.x / 1000,
-                    defaultFrame.y / 1000,
-                    (defaultFrame.x + defaultFrame.width) / 1000,
-                    (defaultFrame.y + defaultFrame.height) / 1000
+                    x,
+                    y,
+                    x + defaultFrame.width / 1000,
+                    y + defaultFrame.height / 1000
                 )
             ))
             floated.insert(id.nodeID)
+            cascade += Double(next.layoutConfig.floatCascade)
         }
         next.root = .desktop(DesktopArea(floats: floats))
         return (next, LayoutDiff(floated: floated))

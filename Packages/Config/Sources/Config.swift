@@ -17,14 +17,6 @@ public enum ConfigModule {
     }
 }
 
-/// Legacy overview preview mode (kept for PlatformMac overview capture helpers; not a config key).
-public enum OverviewPreviewsMode: String, Sendable, Codable, Equatable {
-    case auto
-    case live
-    case snapshots
-    case off
-}
-
 /// Per-workspace tiling override from `[workspace.<n>]`.
 public struct WorkspaceConfig: Sendable, Equatable {
     public var tiling: Bool?

@@ -168,7 +168,8 @@ public enum WindowRematcher {
 
         func remapLeaf(_ w: WindowLeaf) -> WindowLeaf {
             var copy = w
-            copy.id = claimID(w.id)
+            // Assign `identity` directly — the `id` setter uses `WindowID.named` and drops cg/pid.
+            copy.identity = claim(w.identity)
             if let d = w.donor { copy.donor = claimID(d) }
             return copy
         }

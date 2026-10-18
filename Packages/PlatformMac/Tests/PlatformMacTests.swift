@@ -85,11 +85,13 @@ import Config
 
 // MARK: - Safety net
 
-@Test func safetyNetDisablesOnlyThreeFeatures() {
+@Test func safetyNetDisablesP5aGatedFeatures() {
     let reduced = InputSafetyNetState.reduced(reason: "test")
     #expect(reduced.disablesModifierDrag)
     #expect(reduced.disablesPinchOverApps)
     #expect(reduced.disablesLeftRightModifiers)
+    #expect(reduced.disablesDoubleClickGestures)
+    #expect(reduced.disablesGreenButton)
 
     let fromFail = InputSafetyNetState.from(
         tapCreated: false,

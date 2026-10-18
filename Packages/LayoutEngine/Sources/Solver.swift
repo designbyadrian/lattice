@@ -153,15 +153,56 @@ public enum LayoutSolver {
             screen: screen,
             camera: workspace.camera.edges
         )
+        let identities = Self.windowIdentities(in: workspace.root)
         var frames: [WindowID: Rect] = [:]
         for (id, p) in placements {
-            if let real = p.real {
-                frames[WindowID.named(id)] = real
-            } else if p.cls == "live" || p.cls.hasPrefix("float-") {
-                frames[WindowID.named(id)] = p.frame
+            let windowID = identities[id] ?? WindowID.named(id)
+            if let ax = Self.axFrame(for: p, screen: screen) {
+                frames[windowID] = ax
             }
         }
         return SolveResult(frames: frames, placements: placements, slots: slots)
+    }
+
+    /// Frame written to AX for a placement (ADDENDUM-3 §5.1 / §5.4).
+    public static func axFrame(for placement: Placement, screen: ScreenGeometry) -> Rect? {
+        if let real = placement.real { return real }
+        switch placement.cls {
+        case "live", "float-live", "float-nudged":
+            return placement.frame
+        case "icon", "clipped", "parked", "in-group-tile", "float-parked", "float-clipped", "float-icon":
+            // Park at a display corner; size is tile-floor / last size (use placement frame size).
+            return parkFrame(
+                screen,
+                size: Size(width: max(1, placement.frame.width), height: max(1, placement.frame.height))
+            )
+        case "hidden-tab":
+            return parkFrame(
+                screen,
+                size: Size(width: max(1, placement.frame.width), height: max(1, placement.frame.height))
+            )
+        default:
+            return nil
+        }
+    }
+
+    /// Map layout node ids → platform `WindowID` (preserves cgWindowID for AX writes).
+    public static func windowIdentities(in root: LayoutNode) -> [NodeID: WindowID] {
+        var out: [NodeID: WindowID] = [:]
+        func walk(_ node: LayoutNode) {
+            switch node {
+            case .window(let w):
+                out[w.id] = w.identity
+            case .tabs(let t):
+                for m in t.members { out[m.id] = m.identity }
+            case .desktop(let d):
+                for f in d.floats { out[f.window.id] = f.window.identity }
+            case .split(let s):
+                for c in s.children { walk(c) }
+            }
+        }
+        walk(root)
+        return out
     }
 
     public static func solveFrames(

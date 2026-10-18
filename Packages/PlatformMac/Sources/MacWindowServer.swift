@@ -12,7 +12,6 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
     public let permissions: MacPermissions
     public let spacesController: any SpacesControlling
     public let frameAnimator: any FrameAnimating
-    public let overviewPresenter: any OverviewPresenting
     public let multitouchSession: ExperimentalMultitouchSession
 
     private let writer: MacWindowWriter
@@ -26,7 +25,6 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
         permissions: MacPermissions = MacPermissions(),
         writer: MacWindowWriter = .shared,
         spacesController: MacSpacesController? = nil,
-        overviewPresenter: MacOverviewPresenter? = nil,
         multitouchSession: ExperimentalMultitouchSession = ExperimentalMultitouchSession()
     ) {
         self.experimentalFlags = experimentalFlags
@@ -38,9 +36,6 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
             try await writer.setFrame(target.frame, for: target.windowID, pid: target.pid)
         }
         self.frameAnimator = animator
-        let overview = overviewPresenter ?? MacOverviewPresenter()
-        overview.screenRecordingGranted = { permissions.hasScreenRecordingAccess }
-        self.overviewPresenter = overview
         syncExperimentalSessions()
     }
 
@@ -62,10 +57,6 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
 
     public var accessibilityReduceMotion: Bool {
         ReduceMotion.isEnabled
-    }
-
-    public var macOverview: MacOverviewPresenter? {
-        overviewPresenter as? MacOverviewPresenter
     }
 
     public var macSpaces: MacSpacesController? {

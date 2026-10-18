@@ -41,17 +41,23 @@ public final class AppCoordinator: @unchecked Sendable {
     /// Camera navigation history keyed by `"\(displayUUID)#\(workspaceNumber)"`.
     public private(set) var navigationHistories: [String: NavigationHistory] = [:]
 
-    /// Overview is open (zoomed-out tree UI).
-    public private(set) var isOverviewVisible: Bool = false
-
-    /// Pending frame-rect drag (world coordinates); set when `frame-rect` opens the overlay.
+    /// Pending frame-rect drag (screen coordinates); set when `frame-rect` opens the overlay.
     public private(set) var pendingFrameRect: Rect?
 
-    /// Collapse thresholds for overview tiles.
-    public var collapseThresholds: CollapseThresholds = .default
+    /// Title-bar drag session (live make-room); nil when idle.
+    public private(set) var activeDrag: DragSession?
+
+    /// Continuous pinch in progress (B9).
+    public private(set) var pinchActive: Bool = false
 
     /// Animation duration override (nil → `LayoutMotion.defaultDurationSeconds`).
     public var animationDurationSeconds: Double?
+
+    /// Previous icon-tile ids (hysteresis) per display#workspace.
+    private var previousIconTiles: [String: Set<NodeID>] = [:]
+
+    /// AX read-back / learn generation budget for the current user action.
+    private var axResolveGeneration: Int = 0
 
     /// Learned / rule `min-size` constraints keyed by window.
     public private(set) var minSizes: MinSizes = [:]
@@ -181,8 +187,8 @@ public final class AppCoordinator: @unchecked Sendable {
             await moveFocusedWindowToDisplay(target, follow: follow)
         case .unmanageAll:
             await unmanageAll()
-        case .zoom(let target, _):
-            await zoom(target)
+        case .zoom(let target, let toggle):
+            await zoom(target, toggle: toggle)
         case .frameRect:
             await beginFrameRect()
         case .history(let direction):
@@ -191,8 +197,16 @@ public final class AppCoordinator: @unchecked Sendable {
             await loadSavedView(index)
         case .storeView(let index):
             await saveCurrentView(index)
-        case .pan, .desktopArea, .dockAll, .splitNew, .splitDirection:
-            break // stubbed until layout/camera phases wire them
+        case .pan(let direction):
+            await pan(direction)
+        case .desktopArea(let action):
+            await desktopArea(action)
+        case .dockAll:
+            await dockAll()
+        case .splitNew(let appId):
+            await splitNew(appId: appId)
+        case .splitDirection(let action):
+            await splitDirection(action)
         case .reloadConfig:
             break // App shell reloads file then calls reloadConfig(_:)
         case .mode(let name):
@@ -287,9 +301,6 @@ public final class AppCoordinator: @unchecked Sendable {
 
     /// Leave every managed window on-screen before quit.
     public func prepareSafeQuit() async {
-        if isOverviewVisible {
-            await dismissOverview(restoreCamera: true)
-        }
         platform.frameAnimator.cancelAnimation()
 
         let displays = await platform.listDisplays()
@@ -313,34 +324,41 @@ public final class AppCoordinator: @unchecked Sendable {
         }
     }
 
-    // MARK: - Camera / zoom / overview (P7)
+    // MARK: - Camera / zoom (P5 / P7, ADDENDUM-2 B6/B10)
 
-    public func zoom(_ target: ZoomTarget) async {
+    public func zoom(_ target: ZoomTarget, toggle: Bool = false) async {
         guard allowLayoutHotkey() else { return }
+        let focused = queue.sync { focusedWindowID }
         await mutateActiveCamera { engine, history in
             switch target {
             case .in:
-                let focus = engine.camera.focusPath
-                let point: Point
-                if let frame = engine.solveResult.nodeFrames[focus] {
-                    point = Point(x: frame.midX, y: frame.midY)
-                } else {
-                    point = Point(x: engine.displayRect.midX, y: engine.displayRect.midY)
-                }
+                let point = Point(x: engine.displayRect.midX, y: engine.displayRect.midY)
                 engine.stepIn(towardPoint: point)
+                history.navigate(to: engine.camera)
             case .out:
                 engine.stepOut()
+                history.navigate(to: engine.camera)
             case .all:
                 engine.showAll()
+                history.navigate(to: engine.camera)
             case .window:
-                if let focused = engine.workspace.root.tiledWindowIDs.first {
-                    engine.frameAlone(focused)
+                let id = focused ?? engine.workspace.root.tiledWindowIDs.first
+                if let id {
+                    if toggle {
+                        engine.toggleFrame(target: id.nodeID, history: &history)
+                    } else {
+                        engine.frameAlone(id)
+                        history.navigate(to: engine.camera)
+                    }
                 }
             case .desktop:
-                // Stub: frame the desktop region when wired; for now show everything.
-                engine.showAll()
+                if toggle {
+                    engine.toggleFrame(target: "desktop", history: &history)
+                } else {
+                    engine.frameDesktop()
+                    history.navigate(to: engine.camera)
+                }
             }
-            history.navigate(to: engine.camera)
         }
         await applySolvedFrames(animated: true, useCamera: true)
     }
@@ -403,67 +421,101 @@ public final class AppCoordinator: @unchecked Sendable {
         }
     }
 
-    public func toggleOverview() async {
+    public func pan(_ direction: CommandDirection) async {
         guard allowLayoutHotkey() else { return }
-        if isOverviewVisible {
-            await dismissOverview(restoreCamera: false)
-        } else {
-            await showOverview()
-        }
-    }
-
-    public func showOverview() async {
-        let displays = await platform.listDisplays()
-        guard let display = displays.first else { return }
-
-        // Zoom out for overview framing.
+        var moved = false
         await mutateActiveCamera { engine, history in
-            engine.showAll()
-            history.navigate(to: engine.camera)
+            moved = engine.pan(direction.edge)
+            if moved {
+                history.navigate(to: engine.camera)
+            }
         }
-        await applySolvedFrames(animated: true, useCamera: true)
-
-        let tiles = queue.sync { () -> [OverviewTileDescriptor] in
-            let uuid = display.uuid
-            let num = activeWorkspaceNumber[uuid] ?? 1
-            let layout = displayLayouts[uuid] ?? DisplayLayout(displayUUID: uuid)
-            var workspace = layout.workspaces[num] ?? .empty
-            workspace.excludedApps.formUnion(globalExcludedApps)
-            var engine = CameraEngine(
-                workspace: workspace,
-                displayRect: display.visibleFrame.asRect,
-                gaps: gaps
-            )
-            engine.camera = .showAll
-            return Self.buildOverviewTiles(
-                engine: engine,
-                thresholds: collapseThresholds
-            )
-        }
-
-        queue.sync { isOverviewVisible = true }
-        platform.overviewPresenter.presentOverview(
-            displayFrame: display.frame,
-            tiles: tiles
-        ) { [weak self] path in
-            Task { await self?.activateOverviewPath(path) }
-        }
-    }
-
-    public func dismissOverview(restoreCamera: Bool) async {
-        platform.overviewPresenter.dismissOverview()
-        queue.sync { isOverviewVisible = false }
-        if restoreCamera {
+        if moved {
             await applySolvedFrames(animated: true, useCamera: true)
         }
     }
 
-    public func activateOverviewPath(_ path: [Int]) async {
-        await mutateActiveCamera { engine, history in
-            engine.camera = Camera(focusPath: path, zoom: 1)
-            history.navigate(to: engine.camera)
+    public func desktopArea(_ action: DesktopAreaAction) async {
+        guard allowLayoutHotkey() else { return }
+        queue.sync {
+            for (uuid, var layout) in displayLayouts {
+                let num = activeWorkspaceNumber[uuid] ?? 1
+                var ws = layout.workspaces[num] ?? .empty
+                switch action {
+                case .show:
+                    let (next, _) = ws.showingDesktop()
+                    ws = next
+                case .hide:
+                    let (next, _) = ws.hidingDesktop()
+                    ws = next
+                case .toggle:
+                    if ws.desktopHidden {
+                        let (next, _) = ws.showingDesktop()
+                        ws = next
+                    } else {
+                        let (next, _) = ws.hidingDesktop()
+                        ws = next
+                    }
+                }
+                layout.workspaces[num] = ws
+                displayLayouts[uuid] = layout
+            }
         }
-        await dismissOverview(restoreCamera: false)
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    public func dockAll() async {
+        guard allowLayoutHotkey() else { return }
+        let displays = await platform.listDisplays()
+        queue.sync {
+            for display in displays {
+                let uuid = display.uuid
+                let num = activeWorkspaceNumber[uuid] ?? 1
+                var layout = displayLayouts[uuid] ?? DisplayLayout(displayUUID: uuid)
+                var ws = layout.workspaces[num] ?? .empty
+                let floats = ws.floatWins.sorted { a, b in
+                    if a.frac.x0 != b.frac.x0 { return a.frac.x0 < b.frac.x0 }
+                    return a.frac.y0 < b.frac.y0
+                }.map(\.window)
+                ws.root = TreeOps.dockAll(ws.root, floatsInXOrder: floats, cfg: ws.layoutConfig)
+                layout.workspaces[num] = ws
+                displayLayouts[uuid] = layout
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    private func splitNew(appId: String) async {
+        // Launch is App-shell concern; here we only dock a matching existing window if present.
+        guard let id = await findWindow(bundleID: appId) else {
+            queue.sync { lastHUDMessage = "No window for \(appId)" }
+            return
+        }
+        queue.sync { focusedWindowID = id }
+        await dockFocused(direction: .right, screen: false)
+    }
+
+    private func splitDirection(_ action: SplitDirectionAction) async {
+        guard allowLayoutHotkey() else { return }
+        guard let id = queue.sync(execute: { focusedWindowID }) else { return }
+        mutateWorkspaceContaining(id) { ws in
+            guard let path = ws.root.path(to: id), path.count >= 1 else { return ws }
+            let parentPath = Array(path.dropLast())
+            guard case .split(var split) = ws.root.node(at: parentPath) else { return ws }
+            switch action {
+            case .toggle:
+                split.axis = split.axis == .horizontal ? .vertical : .horizontal
+            case .horizontal:
+                split.axis = .horizontal
+            case .vertical:
+                split.axis = .vertical
+            }
+            var next = ws
+            if let updated = next.root.replacing(at: parentPath, with: .split(split)) {
+                next.root = updated.normalizedOrDesktop(cfg: next.layoutConfig)
+            }
+            return next
+        }
         await applySolvedFrames(animated: true, useCamera: true)
     }
 
@@ -693,13 +745,13 @@ public final class AppCoordinator: @unchecked Sendable {
         await applySolvedFrames(animated: false, useCamera: true)
     }
 
-    /// Solve and apply frames. When `useCamera` is true, maps through the workspace camera
-    /// (parking off-view windows). When `animated`, drives `frameAnimator` with shared layout motion.
+    /// Solve and apply frames. Camera maps through world rect; settle writes AX once
+    /// in park → shrink → grow order (ADDENDUM-3 §5.1). Reduce Motion jumps.
     public func applySolvedFrames(animated: Bool, useCamera: Bool) async {
         let displays = await platform.listDisplays()
         var allFrames: [WindowID: Rect] = [:]
         var targets: [WindowFrameTarget] = []
-        var workspacesByDisplay: [String: Workspace] = [:]
+        let previousFrames = queue.sync { lastFrames }
 
         for display in displays {
             let (workspace, gapsCopy): (Workspace, Gaps) = queue.sync {
@@ -707,32 +759,22 @@ public final class AppCoordinator: @unchecked Sendable {
                 let layout = displayLayouts[display.uuid] ?? DisplayLayout(displayUUID: display.uuid)
                 var workspace = layout.workspaces[num] ?? .empty
                 workspace.excludedApps.formUnion(globalExcludedApps)
+                workspace.root = Self.applyMinSizes(workspace.root, sizes: minSizes)
                 return (workspace, gaps)
             }
-            workspacesByDisplay[display.uuid] = workspace
 
             let displayRect = display.visibleFrame.asRect
             let sizes = queue.sync { minSizes }
-            let result: [WindowID: Rect]
-            if useCamera {
-                let engine = CameraEngine(
-                    workspace: workspace,
-                    displayRect: displayRect,
-                    gaps: gapsCopy,
-                    minSizes: sizes
-                )
-                result = engine.framesAtCamera()
-            } else {
-                // Identity camera for safe-quit: unpark everything onto the solved layout.
-                var flat = workspace
-                flat.camera = .showAll
-                result = LayoutEngine.solve(
-                    workspace: flat,
-                    displayRect: displayRect,
-                    gaps: gapsCopy,
-                    minSizes: sizes
-                )
+            var ws = workspace
+            if !useCamera {
+                ws.camera = .home
             }
+            let result = LayoutEngine.solve(
+                workspace: ws,
+                displayRect: displayRect,
+                gaps: gapsCopy,
+                minSizes: sizes
+            )
 
             for (id, rect) in result {
                 allFrames[id] = rect
@@ -746,6 +788,8 @@ public final class AppCoordinator: @unchecked Sendable {
             }
         }
 
+        targets = Self.orderedSettleTargets(targets, previous: previousFrames)
+
         let layoutSnapshot: DisplayLayout? = queue.sync {
             lastFrames = allFrames
             let uuid = displayLayouts.keys.sorted().first
@@ -755,28 +799,100 @@ public final class AppCoordinator: @unchecked Sendable {
         let duration = animationDurationSeconds ?? LayoutMotion.defaultDurationSeconds
         let reduceMotion = platform.accessibilityReduceMotion
         let animEnabled = queue.sync { config.animations.enabled }
+        // B12: still proxies elsewhere; AX applied once at settle (animator finals / jump).
         if animated && animEnabled && !reduceMotion {
             await platform.frameAnimator.animateFrames(
                 to: targets,
                 durationSeconds: duration,
                 reduceMotion: false
             )
-        } else if animated && reduceMotion {
-            // Reduce Motion: jump (no interpolated motion).
+        } else {
             await platform.frameAnimator.animateFrames(
                 to: targets,
                 durationSeconds: 0,
                 reduceMotion: true
             )
-        } else {
-            for t in targets {
-                try? await platform.setFrame(t.frame, for: t.windowID, pid: t.pid)
-            }
         }
-        _ = workspacesByDisplay
+
+        await readBackAndLearn(targets: targets)
         onFramesApplied?(allFrames, layoutSnapshot)
         publishTabGroups()
         persistAllLayouts()
+    }
+
+    static func orderedSettleTargets(
+        _ targets: [WindowFrameTarget],
+        previous: [WindowID: Rect]
+    ) -> [WindowFrameTarget] {
+        func area(_ t: WindowFrameTarget) -> Double { t.frame.width * t.frame.height }
+        func prevArea(_ t: WindowFrameTarget) -> Double {
+            if let p = previous.first(where: {
+                $0.key.cgWindowID == t.windowID && $0.key.processID == t.pid
+            })?.value {
+                return p.width * p.height
+            }
+            return area(t)
+        }
+        let isPark: (WindowFrameTarget) -> Bool = { t in
+            t.frame.x < -50 || t.frame.y < -50 || t.frame.x > 8_000 || t.frame.y > 8_000
+        }
+        let parked = targets.filter(isPark)
+        let rest = targets.filter { !isPark($0) }
+        let shrink = rest.filter { area($0) + 1 < prevArea($0) }
+        let grow = rest.filter { area($0) + 1 >= prevArea($0) }
+        return parked + shrink + grow
+    }
+
+    static func applyMinSizes(_ root: LayoutNode, sizes: MinSizes) -> LayoutNode {
+        func leaf(_ w: WindowLeaf) -> WindowLeaf {
+            var copy = w
+            if let s = sizes[w.identity] ?? sizes.first(where: { $0.key.nodeID == w.id })?.value {
+                copy.appMin = s
+            }
+            return copy
+        }
+        switch root {
+        case .window(let w): return .window(leaf(w))
+        case .tabs(var t):
+            t.members = t.members.map(leaf)
+            return .tabs(t)
+        case .desktop(var d):
+            d.floats = d.floats.map { FloatWin(window: leaf($0.window), frac: $0.frac) }
+            return .desktop(d)
+        case .split(var s):
+            s.children = s.children.map { applyMinSizes($0, sizes: sizes) }
+            return .split(s)
+        }
+    }
+
+    private func readBackAndLearn(targets: [WindowFrameTarget]) async {
+        let learn = queue.sync { config.windowSizing.learnMinimums }
+        guard learn else { return }
+        let live = await platform.listWindows()
+        let tol = Double(queue.sync { config.windowSizing.axSizeTolerance })
+        queue.sync {
+            for t in targets {
+                guard let ref = live.first(where: { $0.id == t.windowID && $0.pid == t.pid }) else { continue }
+                let got = ref.frame
+                let want = t.frame
+                let id = ref.asWindowID
+                if got.width > want.width + tol {
+                    let prevH = minSizes[id]?.height ?? got.height
+                    minSizes[id] = Size(width: got.width, height: prevH)
+                }
+                if got.height > want.height + tol {
+                    let prevW = minSizes[id]?.width ?? got.width
+                    minSizes[id] = Size(width: prevW, height: got.height)
+                }
+                if let learned = minSizes[id],
+                   got.width < learned.width - tol || got.height < learned.height - tol {
+                    minSizes[id] = Size(
+                        width: min(learned.width, got.width),
+                        height: min(learned.height, got.height)
+                    )
+                }
+            }
+        }
     }
 
     // MARK: - Camera helpers
@@ -833,70 +949,16 @@ public final class AppCoordinator: @unchecked Sendable {
         }
     }
 
-    public static func buildOverviewTiles(
-        engine: CameraEngine,
-        thresholds: CollapseThresholds
-    ) -> [OverviewTileDescriptor] {
-        var tiles: [OverviewTileDescriptor] = []
-        for path in engine.workspace.root.allPaths() {
-            guard let node = engine.workspace.root.node(at: path),
-                  let onScreen = engine.solveResult.nodeFrames[path] else { continue }
-            let presentation = Collapse.presentation(for: node, frame: onScreen, thresholds: thresholds)
-            var bundleID: String?
-            var title = ""
-            var windowID: UInt32?
-            let isLeaf: Bool
-            switch node {
-            case .window(let leaf):
-                isLeaf = true
-                let wid = leaf.window
-                bundleID = wid.bundleID
-                title = wid.titleFingerprint
-                windowID = wid.cgWindowID
-            case .tabs(let tabs):
-                isLeaf = true
-                if let selected = tabs.selectedWindow {
-                    bundleID = selected.bundleID
-                    title = selected.titleFingerprint
-                    windowID = selected.cgWindowID
-                }
-            case .split:
-                isLeaf = false
-            case .desktop:
-                continue
-            }
-            // Collapsed tiles always; expanded leaves for preview hosts.
-            if presentation != .expanded || isLeaf {
-                tiles.append(OverviewTileDescriptor(
-                    path: path,
-                    frame: CGRectCodable(
-                        x: onScreen.x, y: onScreen.y,
-                        width: onScreen.width, height: onScreen.height
-                    ),
-                    presentation: presentationLabel(presentation),
-                    bundleID: bundleID,
-                    title: title,
-                    windowID: windowID
-                ))
-            }
-        }
-        return tiles
-    }
-
-    private static func presentationLabel(_ p: CollapsePresentation) -> String {
-        switch p {
-        case .expanded: return "expanded"
-        case .windowTile: return "windowTile"
-        case .groupTile: return "groupTile"
-        }
-    }
-
     // MARK: - Tree mutations
 
     private func insertIfNeeded(_ ref: WindowRef) async {
         if isExcluded(ref) { return }
         let id = ref.asWindowID
         let displayUUID = await displayUUID(containing: ref.frame) ?? primaryDisplayUUID()
+        let displays = await platform.listDisplays()
+        let displayRect = displays.first(where: { $0.uuid == displayUUID })?.visibleFrame.asRect
+            ?? displays.first?.visibleFrame.asRect
+            ?? Rect(x: 0, y: 0, width: 1440, height: 900)
 
         let (cfg, rules) = queue.sync { (config.ruleClassificationConfig, config.rules) }
         let facts = ref.asWindowFacts(
@@ -922,8 +984,8 @@ public final class AppCoordinator: @unchecked Sendable {
 
         for command in postCommands {
             switch command {
-            case .dock(let edge, let screen):
-                dockTarget = screen ? .screenEdge(edge) : .screenEdge(edge)
+            case .dock(let edge, _):
+                dockTarget = .screenEdge(edge)
             case .tabWithFocused:
                 tabTarget = queue.sync { focusedWindowID }
             case .tabWithAppId(let appId):
@@ -942,18 +1004,34 @@ public final class AppCoordinator: @unchecked Sendable {
             var ws = layout.workspaces[num] ?? .empty
             if ws.contains(id) { return }
 
+            // B1 float-first: default and layout-floating → DesktopArea float at natural frame.
             if classification.floating {
-                let frame = ref.frame.asRect
-                var floats = ws.floating
-                floats.append(FloatingWindow(id: id, frame: frame))
-                ws.floating = floats
+                let natural = Size(width: ref.frame.width, height: ref.frame.height)
+                // Desktop tile ≈ content rect when the area is the whole workspace.
+                let cfg = ws.layoutConfig
+                let screen = ScreenGeometry(visible: displayRect, frame: displayRect)
+                let tile: Rect
+                if case .desktop = ws.root {
+                    let C = screen.contentEdges(cfg: cfg)
+                    tile = Rect(x: C.x0, y: C.y0, width: C.width, height: C.height)
+                } else if let desk = TreeOps.find(ws.root, target: "desktop"),
+                          let solved = LayoutSolver.solve(
+                            workspace: ws, displayRect: displayRect
+                          ).placements[desk.node.id]?.frame {
+                    tile = solved
+                } else {
+                    let C = screen.contentEdges(cfg: cfg)
+                    tile = Rect(x: C.x0, y: C.y0, width: C.width, height: C.height)
+                }
+                let (next, _) = ws.insertingFloat(id, natural: natural, desktopTile: tile, cfg: cfg)
+                ws = next
             } else if let tabTarget, ws.contains(tabTarget) {
                 let (inserted, _) = ws.inserting(id, at: .screenEdge(.right))
                 ws = inserted
                 let (tabbed, _) = ws.tabbing(id, onto: tabTarget)
                 ws = tabbed
             } else {
-                let target = dockTarget ?? .screenEdge(.right)
+                let target = dockTarget ?? .screenEdge(.left)
                 let (next, _) = ws.inserting(id, at: target)
                 ws = next
             }
@@ -964,7 +1042,6 @@ public final class AppCoordinator: @unchecked Sendable {
             }
         }
 
-        // Remaining post-placement commands (workspace moves, etc.).
         for command in postCommands {
             switch command {
             case .moveWindowToWorkspace(let n):
@@ -1502,7 +1579,7 @@ public final class AppCoordinator: @unchecked Sendable {
         for layout in displayLayouts.values {
             for ws in layout.workspaces.values {
                 guard let path = ws.root.path(to: id) else { continue }
-                // Prefer sibling in the same split along the requested edge.
+                // Prefer sibling in the same split along the requested edge; skip desktop/empty.
                 if path.count >= 1 {
                     let parentPath = Array(path.dropLast())
                     let index = path.last!
@@ -1513,13 +1590,27 @@ public final class AppCoordinator: @unchecked Sendable {
                         case (.horizontal, .right), (.vertical, .down): delta = 1
                         default: delta = 0
                         }
-                        let ni = index + delta
-                        if split.children.indices.contains(ni) {
-                            return split.children[ni].tiledWindowIDs.first
+                        if delta != 0 {
+                            var ni = index + delta
+                            while split.children.indices.contains(ni) {
+                                if let hit = split.children[ni].tiledWindowIDs.first {
+                                    return hit
+                                }
+                                ni += delta
+                            }
                         }
                     }
                 }
-                return ws.root.tiledWindowIDs.first { $0 != id }
+                // Geometric fallback: next tiled window in DFS order.
+                let tiled = ws.root.tiledWindowIDs
+                if let idx = tiled.firstIndex(where: { $0 == id }) {
+                    if direction == .right || direction == .down {
+                        if idx + 1 < tiled.count { return tiled[idx + 1] }
+                    } else if idx > 0 {
+                        return tiled[idx - 1]
+                    }
+                }
+                return tiled.first { $0 != id }
             }
         }
         return nil
@@ -1586,6 +1677,173 @@ public final class AppCoordinator: @unchecked Sendable {
 
     public func focusFollowsMouseTimerFired(for windowKey: String) -> FocusFollowsMouseMachine.Action {
         queue.sync { focusFollowsMouse.noteTimerFired(for: windowKey) }
+    }
+
+    // MARK: - Input gestures (B3–B5, B9, B14, B15)
+
+    /// Green button: docked → float; floating → dock (P5a-gated by caller).
+    public func handleGreenButton(for ref: WindowRef) async {
+        guard allowLayoutHotkey() else { return }
+        let id = ref.asWindowID
+        let floating = queue.sync {
+            displayLayouts.values.contains { layout in
+                layout.workspaces.values.contains { $0.isFloating(id) }
+            }
+        }
+        if floating {
+            mutateWorkspaceContaining(id) { ws in
+                let (next, _) = ws.docking(id, at: .screenEdge(.left))
+                return next
+            }
+        } else {
+            let frame = ref.frame.asRect
+            mutateWorkspaceContaining(id) { ws in
+                let (next, _) = ws.floating(id, frame: frame)
+                return next
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    /// Double-click desktop / title via `[mouse]` commands (ADDENDUM A1 / B14).
+    public func handleDoubleClick(kind: DoubleClickKind) async {
+        let action: MouseDoubleClickAction = queue.sync {
+            switch kind {
+            case .desktop: return config.mouse.doubleClickDesktop
+            case .title: return config.mouse.doubleClickTitle
+            }
+        }
+        guard case .commands(let commands) = action else { return }
+        for command in commands {
+            await execute(command, source: .binding)
+        }
+    }
+
+    public enum DoubleClickKind: Sendable {
+        case desktop
+        case title
+    }
+
+    /// Begin title-bar drag (live make-room). Esc cancels via `cancelDrag()`.
+    public func beginDrag(window: WindowID, at point: Point, isTabStrip: Bool = false) {
+        let frame = queue.sync { lastFrames[window] } ?? Rect.zero
+        queue.sync {
+            activeDrag = DragSession(
+                window: window,
+                originFrame: frame,
+                currentPoint: point,
+                isTabStripDrag: isTabStrip
+            )
+        }
+    }
+
+    public func updateDrag(to point: Point, proposed: DropTarget?) async {
+        var shouldPreview = false
+        queue.sync {
+            guard var drag = activeDrag else { return }
+            drag.currentPoint = point
+            if case .center = proposed {
+                if drag.centerHoldStarted == nil {
+                    drag.centerHoldStarted = Date()
+                } else if let start = drag.centerHoldStarted,
+                          Date().timeIntervalSince(start) >= DragSession.tabHoldSeconds {
+                    drag.previewTarget = proposed
+                    shouldPreview = true
+                }
+            } else {
+                drag.centerHoldStarted = nil
+                drag.previewTarget = proposed
+                shouldPreview = proposed != nil
+            }
+            activeDrag = drag
+        }
+        if shouldPreview {
+            // Live make-room: re-solve with a ghost insert for stills (AX only on commit).
+            await applySolvedFrames(animated: true, useCamera: true)
+        }
+    }
+
+    public func commitDrag() async {
+        let session = queue.sync { () -> DragSession? in
+            let s = activeDrag
+            activeDrag = nil
+            return s
+        }
+        guard let session else { return }
+        guard let target = session.previewTarget else {
+            // Cancel / elsewhere → restore (no tree change).
+            await applySolvedFrames(animated: true, useCamera: true)
+            return
+        }
+        if case .center(let nodeID) = target {
+            mutateWorkspaceContaining(session.window) { ws in
+                // Tab onto the node under the pointer.
+                if let win = ws.root.tiledWindowIDs.first(where: { $0.nodeID == nodeID })
+                    ?? ws.root.tiledWindowIDs.first {
+                    let (next, _) = ws.tabbing(session.window, onto: win)
+                    return next
+                }
+                return ws
+            }
+        } else {
+            mutateWorkspaceContaining(session.window) { ws in
+                let (next, _) = ws.moving(session.window, to: target)
+                return next
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+        publishTabGroups()
+    }
+
+    public func cancelDrag() async {
+        queue.sync { activeDrag = nil }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    /// Continuous pinch (B9). Call `endPinch` on release to settle.
+    public func updatePinch(factor: Double, about point: Point) async {
+        queue.sync { pinchActive = true }
+        await mutateActiveCamera { engine, history in
+            engine.pinchScale(factor: factor, aboutScreenPoint: point)
+            history.replaceCurrent(with: engine.camera)
+        }
+        // Stills only during pinch — skip AX until settle.
+    }
+
+    public func endPinch(about point: Point) async {
+        await mutateActiveCamera { engine, history in
+            engine.settlePinch(aboutScreenPoint: point)
+            history.navigate(to: engine.camera)
+        }
+        queue.sync { pinchActive = false }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    /// Tear a tab out of its group (B5).
+    public func tearOffTab(_ window: WindowID) async {
+        mutateWorkspaceContaining(window) { ws in
+            let (next, _) = ws.untabbing(window)
+            return next
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+        publishTabGroups()
+    }
+
+    /// Activate a tab in its group.
+    public func selectTab(_ window: WindowID) async {
+        mutateWorkspaceContaining(window) { ws in
+            var next = ws
+            guard let loc = TreeOps.find(next.root, target: window.nodeID),
+                  case .tabs(var tabs) = loc.parent,
+                  let idx = tabs.members.firstIndex(where: { $0.id == window.nodeID }) else {
+                return ws
+            }
+            tabs.active = idx
+            next.root = TreeOps.replace(next.root, oldID: tabs.id, with: .tabs(tabs))
+            return next
+        }
+        await applySolvedFrames(animated: false, useCamera: true)
+        publishTabGroups()
     }
 }
 

@@ -137,33 +137,16 @@ public final class DisplayLinkAnimator: FrameAnimating, @unchecked Sendable {
         let now = CACurrentMediaTime()
         let dt = max(0, now - lastTick)
         lastTick = now
-        let frames = anim.advance(by: dt)
+        // Advance the curve for timing only. ADDENDUM-2 B12 / ADDENDUM-3 §5.1:
+        // still proxies draw motion; AX is written once at settle (not every frame).
+        _ = anim.advance(by: dt)
         animator = anim
 
-        var batch: [WindowFrameTarget] = []
-        batch.reserveCapacity(frames.count)
-        for (wid, rect) in frames {
-            let k = wid.titleFingerprint
-            guard let m = metaByKey[k] else { continue }
-            lastApplied[k] = rect
-            batch.append(WindowFrameTarget(
-                windowID: m.windowID,
-                pid: m.pid,
-                frame: CGRectCodable(x: rect.x, y: rect.y, width: rect.width, height: rect.height)
-            ))
-        }
-
         let gen = generation
-        let apply = self.apply
-        Task {
-            for t in batch {
-                try? await apply(t)
-            }
-            self.stateQueue.async {
-                guard self.generation == gen else { return }
-                if self.animator?.isFinished == true {
-                    self.finishLocked(applyFinal: true)
-                }
+        stateQueue.async {
+            guard self.generation == gen else { return }
+            if self.animator?.isFinished == true {
+                self.finishLocked(applyFinal: true)
             }
         }
     }

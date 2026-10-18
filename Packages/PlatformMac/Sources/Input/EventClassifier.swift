@@ -31,10 +31,17 @@ public struct EventClassifier: Sendable {
     public func classify(_ event: ClassifiableEvent) -> EventClassification {
         switch event.kind {
         case .keyDown:
+            // Esc cancels an active drag (ADDENDUM A3 / B3); host runs cancelDrag async.
+            if event.dragActive, event.key == "escape" {
+                return .swallow
+            }
             return classifyKeyDown(event)
         case .keyUp:
             return classifyKeyUp(event)
-        case .leftMouseDown, .leftMouseDragged:
+        case .leftMouseDown:
+            if let mouse = classifyMouseDown(event) { return mouse }
+            return classifyModifierDrag(event)
+        case .leftMouseDragged:
             return classifyModifierDrag(event)
         case .leftMouseUp:
             // Swallow mouse-up only if we would have swallowed the drag (pair with modifier).
@@ -43,12 +50,46 @@ public struct EventClassifier: Sendable {
                config.modifiers.frameModifier.isEmpty == false {
                 return .swallow
             }
+            if event.hit == .greenButton || event.hit == .bareDesktop
+                || (event.hit == .titleBar && event.clickState >= 2) {
+                return .swallow
+            }
             return .pass
         case .magnify:
             return classifyPinch(event)
         case .flagsChanged, .mouseMoved, .scrollWheel, .other:
             return .pass
         }
+    }
+
+    private func classifyMouseDown(_ event: ClassifiableEvent) -> EventClassification? {
+        // Green button (B15): P5a-gated; Option-click passes through.
+        if event.hit == .greenButton {
+            if safetyNet.disablesGreenButton { return .pass }
+            if event.flags.option { return .pass }
+            return .swallow
+        }
+        // Double-click gestures (A1 / B14).
+        if event.clickState >= 2 {
+            if safetyNet.disablesDoubleClickGestures { return .pass }
+            switch event.hit {
+            case .bareDesktop:
+                if case .none = config.mouse.doubleClickDesktop { return .pass }
+                return .command(commands(for: config.mouse.doubleClickDesktop))
+            case .titleBar:
+                guard event.managedDocked else { return .pass }
+                if case .none = config.mouse.doubleClickTitle { return .pass }
+                return .command(commands(for: config.mouse.doubleClickTitle))
+            default:
+                return nil
+            }
+        }
+        return nil
+    }
+
+    private func commands(for action: MouseDoubleClickAction) -> [Command] {
+        if case .commands(let list) = action { return list }
+        return []
     }
 
     // MARK: - Keys
