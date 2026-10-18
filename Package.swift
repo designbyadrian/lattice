@@ -36,7 +36,10 @@ let package = Package(
         .testTarget(
             name: "LayoutEngineTests",
             dependencies: ["LayoutEngine", "LayoutModel"],
-            path: "Packages/LayoutEngine/Tests"
+            path: "Packages/LayoutEngine/Tests",
+            resources: [
+                .copy("Fixtures")
+            ]
         ),
         .target(
             name: "Platform",

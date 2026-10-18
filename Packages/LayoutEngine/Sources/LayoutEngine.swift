@@ -2,9 +2,7 @@ import Foundation
 import LayoutModel
 
 /// Lattice layout engine: solve, camera, collapse, history, animation math.
-/// Foundation + LayoutModel only (no AppKit).
 public enum LayoutEngine {
-    /// Solve tiled + floating frames for a workspace.
     public static func solve(
         workspace: Workspace,
         displayRect: Rect,
@@ -19,7 +17,6 @@ public enum LayoutEngine {
         )
     }
 
-    /// Full solve including node frames and forced-float set.
     public static func solveDetailed(
         workspace: Workspace,
         displayRect: Rect,
@@ -33,9 +30,29 @@ public enum LayoutEngine {
             minSizes: minSizes
         )
     }
+
+    /// ADDENDUM-3 solve returning placements keyed by node id.
+    public static func solvePlacements(
+        root: LayoutNode,
+        cfg: LayoutConfig = .default,
+        screen: ScreenGeometry = .golden,
+        camera: EdgeRect = .unit,
+        framed: NodeID? = nil,
+        prevIcons: Set<NodeID> = [],
+        prevGroupTiles: Set<NodeID> = []
+    ) -> [NodeID: Placement] {
+        LayoutSolver.solve(
+            root: root,
+            cfg: cfg,
+            screen: screen,
+            camera: camera,
+            framed: framed,
+            prevIcons: prevIcons,
+            prevGroupTiles: prevGroupTiles
+        ).placements
+    }
 }
 
-/// Package marker (kept for smoke tests / discoverability).
 public enum LayoutEngineModule {
     public static let name = "LayoutEngine"
 }

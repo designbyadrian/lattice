@@ -1,0 +1,1999 @@
+[
+ {
+  "name": "G01 single window",
+  "tree": "A",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1420,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     1420,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G02 two columns",
+  "tree": "H[A .5, B .5]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     705,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     725,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     725,
+     35,
+     705,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G03 three columns unequal",
+  "tree": "H[A .5, B .25, C .25]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     705,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     725,
+     35,
+     348,
+     855
+    ],
+    "real": [
+     725,
+     35,
+     348,
+     855
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     1083,
+     35,
+     347,
+     855
+    ],
+    "real": [
+     1083,
+     35,
+     347,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G04 nested column",
+  "tree": "H[A .6, V[B .5, C .5] .4]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     848,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     848,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     868,
+     35,
+     562,
+     423
+    ],
+    "real": [
+     868,
+     35,
+     562,
+     423
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     868,
+     468,
+     562,
+     422
+    ],
+    "real": [
+     868,
+     468,
+     562,
+     422
+    ]
+   }
+  }
+ },
+ {
+  "name": "G05 window + desktop with float",
+  "tree": "H[A .5, Desktop .5 {F at (.1,.1)-(.7,.6)}]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     705,
+     855
+    ]
+   },
+   "desktop": {
+    "class": "desktop",
+    "frame": [
+     725,
+     35,
+     705,
+     855
+    ],
+    "real": null
+   },
+   "F": {
+    "class": "float-live",
+    "frame": [
+     796,
+     121,
+     423,
+     427
+    ],
+    "real": [
+     796,
+     121,
+     423,
+     427
+    ]
+   }
+  }
+ },
+ {
+  "name": "G06 tab group + window",
+  "tree": "H[Tabs(A,B active=B) .5, C .5]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "g1": {
+    "class": "tab-bar",
+    "frame": [
+     10,
+     35,
+     705,
+     28
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     10,
+     63,
+     705,
+     827
+    ],
+    "real": [
+     10,
+     63,
+     705,
+     827
+    ]
+   },
+   "A": {
+    "class": "hidden-tab",
+    "frame": [
+     10,
+     63,
+     705,
+     827
+    ],
+    "real": [
+     1439,
+     899,
+     705,
+     827
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     725,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     725,
+     35,
+     705,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G07 min width honoured",
+  "tree": "H[A .5 (min 900x300), B .5]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     900,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     900,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     920,
+     35,
+     510,
+     855
+    ],
+    "real": [
+     920,
+     35,
+     510,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G08 virtual scale at home (shrink off)",
+  "tree": "H[A..E equal, each min 400x300]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "icon",
+    "frame": [
+     10,
+     35,
+     276,
+     855
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "icon",
+    "frame": [
+     296,
+     35,
+     276,
+     855
+    ],
+    "real": null
+   },
+   "C": {
+    "class": "icon",
+    "frame": [
+     582,
+     35,
+     276,
+     855
+    ],
+    "real": null
+   },
+   "D": {
+    "class": "icon",
+    "frame": [
+     868,
+     35,
+     276,
+     855
+    ],
+    "real": null
+   },
+   "E": {
+    "class": "icon",
+    "frame": [
+     1154,
+     35,
+     276,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G09 same tree, camera on C",
+  "tree": "H[A..E equal, each min 400x300], cam = C's world rect",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.4,
+   0,
+   0.6,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "parked",
+    "frame": [
+     -2850,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "parked",
+    "frame": [
+     -1420,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1420,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     1420,
+     855
+    ]
+   },
+   "D": {
+    "class": "parked",
+    "frame": [
+     1440,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   },
+   "E": {
+    "class": "parked",
+    "frame": [
+     2870,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G10 frame nested node (fit check)",
+  "tree": "H[A .6, V[B .5, C .5] .4], cam = C's world rect",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.6,
+   0.5,
+   1.0,
+   1.0
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "parked",
+    "frame": [
+     -2135,
+     -830,
+     2135,
+     1720
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "parked",
+    "frame": [
+     10,
+     -830,
+     1420,
+     855
+    ],
+    "real": null
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1420,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     1420,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G11 odd gaps, per-side outer",
+  "tree": "H[A 1/3, B 1/3, C 1/3]",
+  "gaps": "inner 11/11, outer [6, 4, 8, 6]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     6,
+     29,
+     468,
+     865
+    ],
+    "real": [
+     6,
+     29,
+     468,
+     865
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     485,
+     29,
+     468,
+     865
+    ],
+    "real": [
+     485,
+     29,
+     468,
+     865
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     964,
+     29,
+     468,
+     865
+    ],
+    "real": [
+     964,
+     29,
+     468,
+     865
+    ]
+   }
+  }
+ },
+ {
+  "name": "G12 pinch camera: clipped and parked",
+  "tree": "H[A, B, C, D equal], cam x 0.3..0.8",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.3,
+   0,
+   0.8,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "parked",
+    "frame": [
+     -848,
+     35,
+     705,
+     855
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "clipped",
+    "frame": [
+     -133,
+     35,
+     705,
+     855
+    ],
+    "real": null
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     582,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     582,
+     35,
+     705,
+     855
+    ]
+   },
+   "D": {
+    "class": "clipped",
+    "frame": [
+     1297,
+     35,
+     705,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G13 deep nesting: icon tiles",
+  "tree": "H[W1, V[W2, H[W3, ... H[W14,W15]]]] all .5 (14 levels)",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "W1": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     250,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     250,
+     855
+    ]
+   },
+   "W2": {
+    "class": "live",
+    "frame": [
+     270,
+     35,
+     1160,
+     98
+    ],
+    "real": [
+     270,
+     35,
+     1160,
+     98
+    ]
+   },
+   "W3": {
+    "class": "icon",
+    "frame": [
+     270,
+     143,
+     157,
+     747
+    ],
+    "real": null
+   },
+   "W4": {
+    "class": "live",
+    "frame": [
+     437,
+     143,
+     993,
+     98
+    ],
+    "real": [
+     437,
+     143,
+     993,
+     98
+    ]
+   },
+   "W5": {
+    "class": "icon",
+    "frame": [
+     437,
+     251,
+     157,
+     639
+    ],
+    "real": null
+   },
+   "W6": {
+    "class": "live",
+    "frame": [
+     604,
+     251,
+     826,
+     98
+    ],
+    "real": [
+     604,
+     251,
+     826,
+     98
+    ]
+   },
+   "W7": {
+    "class": "live",
+    "frame": [
+     604,
+     359,
+     158,
+     531
+    ],
+    "real": [
+     604,
+     359,
+     158,
+     531
+    ]
+   },
+   "W8": {
+    "class": "live",
+    "frame": [
+     772,
+     359,
+     658,
+     99
+    ],
+    "real": [
+     772,
+     359,
+     658,
+     99
+    ]
+   },
+   "W9": {
+    "class": "icon",
+    "frame": [
+     772,
+     468,
+     157,
+     422
+    ],
+    "real": null
+   },
+   "W10": {
+    "class": "live",
+    "frame": [
+     939,
+     468,
+     491,
+     98
+    ],
+    "real": [
+     939,
+     468,
+     491,
+     98
+    ]
+   },
+   "W11": {
+    "class": "icon",
+    "frame": [
+     939,
+     576,
+     157,
+     314
+    ],
+    "real": null
+   },
+   "W12": {
+    "class": "live",
+    "frame": [
+     1106,
+     576,
+     324,
+     98
+    ],
+    "real": [
+     1106,
+     576,
+     324,
+     98
+    ]
+   },
+   "W13": {
+    "class": "icon",
+    "frame": [
+     1106,
+     684,
+     157,
+     206
+    ],
+    "real": null
+   },
+   "W14": {
+    "class": "icon",
+    "frame": [
+     1273,
+     684,
+     157,
+     98
+    ],
+    "real": null
+   },
+   "W15": {
+    "class": "icon",
+    "frame": [
+     1273,
+     792,
+     157,
+     98
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G13b same tree, camera framed on group s10",
+  "tree": "as G13, cam = world rect of s10",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.649436,
+   0.5,
+   1.0,
+   1.0
+  ],
+  "note": "",
+  "expect": {
+   "W1": {
+    "class": "parked",
+    "frame": [
+     -2639,
+     -830,
+     732,
+     1720
+    ],
+    "real": null
+   },
+   "W2": {
+    "class": "parked",
+    "frame": [
+     -1897,
+     -830,
+     3327,
+     206
+    ],
+    "real": null
+   },
+   "W3": {
+    "class": "parked",
+    "frame": [
+     -1897,
+     -614,
+     467,
+     1504
+    ],
+    "real": null
+   },
+   "W4": {
+    "class": "parked",
+    "frame": [
+     -1420,
+     -614,
+     2850,
+     207
+    ],
+    "real": null
+   },
+   "W5": {
+    "class": "parked",
+    "frame": [
+     -1420,
+     -397,
+     467,
+     1287
+    ],
+    "real": null
+   },
+   "W6": {
+    "class": "parked",
+    "frame": [
+     -943,
+     -397,
+     2373,
+     206
+    ],
+    "real": null
+   },
+   "W7": {
+    "class": "parked",
+    "frame": [
+     -943,
+     -181,
+     466,
+     1071
+    ],
+    "real": null
+   },
+   "W8": {
+    "class": "parked",
+    "frame": [
+     -467,
+     -181,
+     1897,
+     206
+    ],
+    "real": null
+   },
+   "W9": {
+    "class": "parked",
+    "frame": [
+     -467,
+     35,
+     467,
+     855
+    ],
+    "real": null
+   },
+   "W10": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1420,
+     206
+    ],
+    "real": [
+     10,
+     35,
+     1420,
+     206
+    ]
+   },
+   "W11": {
+    "class": "live",
+    "frame": [
+     10,
+     251,
+     467,
+     639
+    ],
+    "real": [
+     10,
+     251,
+     467,
+     639
+    ]
+   },
+   "W12": {
+    "class": "live",
+    "frame": [
+     487,
+     251,
+     943,
+     207
+    ],
+    "real": [
+     487,
+     251,
+     943,
+     207
+    ]
+   },
+   "W13": {
+    "class": "live",
+    "frame": [
+     487,
+     468,
+     466,
+     422
+    ],
+    "real": [
+     487,
+     468,
+     466,
+     422
+    ]
+   },
+   "W14": {
+    "class": "live",
+    "frame": [
+     963,
+     468,
+     467,
+     206
+    ],
+    "real": [
+     963,
+     468,
+     467,
+     206
+    ]
+   },
+   "W15": {
+    "class": "live",
+    "frame": [
+     963,
+     684,
+     467,
+     206
+    ],
+    "real": [
+     963,
+     684,
+     467,
+     206
+    ]
+   }
+  }
+ },
+ {
+  "name": "G14 max size centred",
+  "tree": "H[A .5 (max 500x400), B .5]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     500,
+     855
+    ],
+    "real": [
+     10,
+     262,
+     500,
+     400
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     520,
+     35,
+     910,
+     855
+    ],
+    "real": [
+     520,
+     35,
+     910,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G15 icon tile: space below app minimum",
+  "tree": "H[A .8, B .2 (min 400x200)]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1134,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     1134,
+     855
+    ]
+   },
+   "B": {
+    "class": "icon",
+    "frame": [
+     1154,
+     35,
+     276,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G16 insert C right of B (half of the target)",
+  "tree": "H[A,B] + C@B.right -> H[A .5, B .25, C .25]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     705,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     725,
+     35,
+     348,
+     855
+    ],
+    "real": [
+     725,
+     35,
+     348,
+     855
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     1083,
+     35,
+     347,
+     855
+    ],
+    "real": [
+     1083,
+     35,
+     347,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G17 insert C below B (wrap)",
+  "tree": "H[A,B] + C@B.bottom -> H[A, V[B .5, C .5]]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     705,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     725,
+     35,
+     705,
+     423
+    ],
+    "real": [
+     725,
+     35,
+     705,
+     423
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     725,
+     468,
+     705,
+     422
+    ],
+    "real": [
+     725,
+     468,
+     705,
+     422
+    ]
+   }
+  }
+ },
+ {
+  "name": "G18 close undoes add (donor)",
+  "tree": "H[A .7,B .3] +C@A.right then close C -> H[A .7, B .3]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     991,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     991,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     1011,
+     35,
+     419,
+     855
+    ],
+    "real": [
+     1011,
+     35,
+     419,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G18b donor gone: close shares with the row",
+  "tree": "H[A .5,B .2,C .3] +X@B.right, close B, close X -> H[A .625, C .375]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     884,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     884,
+     855
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     904,
+     35,
+     526,
+     855
+    ],
+    "real": [
+     904,
+     35,
+     526,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G19 seam drag +100 pt between A and B",
+  "tree": "H[A,B,C] equal, seam 0 +100",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     567,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     567,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     587,
+     35,
+     366,
+     855
+    ],
+    "real": [
+     587,
+     35,
+     366,
+     855
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     963,
+     35,
+     467,
+     855
+    ],
+    "real": [
+     963,
+     35,
+     467,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G20 flatten same axis",
+  "tree": "H[A .6, H[B .25, C .75] .4] -> H[A .6, B .1, C .3]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     830,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     830,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     850,
+     35,
+     160,
+     855
+    ],
+    "real": [
+     850,
+     35,
+     160,
+     855
+    ]
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     1020,
+     35,
+     410,
+     855
+    ],
+    "real": [
+     1020,
+     35,
+     410,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G21 desktop hide then show restores",
+  "tree": "H[A .4,B .3,Desk .3] hide->show",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     562,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     562,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     582,
+     35,
+     419,
+     855
+    ],
+    "real": [
+     582,
+     35,
+     419,
+     855
+    ]
+   },
+   "desktop": {
+    "class": "desktop",
+    "frame": [
+     1011,
+     35,
+     419,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G22 first dock on fresh workspace",
+  "tree": "Desk + A@screen.left -> H[A .5, Desk .5]",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     705,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     705,
+     855
+    ]
+   },
+   "desktop": {
+    "class": "desktop",
+    "frame": [
+     725,
+     35,
+     705,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G23 group becomes a group tile below threshold",
+  "tree": "H[W1..W13, V[X,Y] id=grp] equal, all min 400x300, shrink off",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "W1": {
+    "class": "icon",
+    "frame": [
+     10,
+     35,
+     92,
+     855
+    ],
+    "real": null
+   },
+   "W13": {
+    "class": "icon",
+    "frame": [
+     1236,
+     35,
+     92,
+     855
+    ],
+    "real": null
+   },
+   "grp": {
+    "class": "group-tile",
+    "frame": [
+     1338,
+     35,
+     92,
+     855
+    ],
+    "real": null
+   },
+   "X": {
+    "class": "in-group-tile",
+    "frame": [
+     1338,
+     35,
+     92,
+     423
+    ],
+    "real": null
+   },
+   "Y": {
+    "class": "in-group-tile",
+    "frame": [
+     1338,
+     468,
+     92,
+     422
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G24 hysteresis: stays a group tile",
+  "tree": "H[W1..W12, V[X,Y]] equal, shrink off, grp was a group tile before",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "W1": {
+    "class": "icon",
+    "frame": [
+     10,
+     35,
+     100,
+     855
+    ],
+    "real": null
+   },
+   "grp": {
+    "class": "group-tile",
+    "frame": [
+     1330,
+     35,
+     100,
+     855
+    ],
+    "real": null
+   },
+   "X": {
+    "class": "in-group-tile",
+    "frame": [
+     1330,
+     35,
+     100,
+     423
+    ],
+    "real": null
+   },
+   "Y": {
+    "class": "in-group-tile",
+    "frame": [
+     1330,
+     468,
+     100,
+     422
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G25 hysteresis: no group tile if it wasn't one",
+  "tree": "as G24 without prior group tile",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "W1": {
+    "class": "icon",
+    "frame": [
+     10,
+     35,
+     100,
+     855
+    ],
+    "real": null
+   },
+   "X": {
+    "class": "icon",
+    "frame": [
+     1330,
+     35,
+     100,
+     423
+    ],
+    "real": null
+   },
+   "Y": {
+    "class": "icon",
+    "frame": [
+     1330,
+     468,
+     100,
+     422
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G26 pinch release settles on best-fitting node",
+  "tree": "H[A .6, V[B .5, C .5] .4], pinch cam (.5,.45,.95,.95), pointer (.8,.8) -> settles on 'C', framed",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.6,
+   0.5,
+   1.0,
+   1.0
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "parked",
+    "frame": [
+     -2135,
+     -830,
+     2135,
+     1720
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "parked",
+    "frame": [
+     10,
+     -830,
+     1420,
+     855
+    ],
+    "real": null
+   },
+   "C": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1420,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     1420,
+     855
+    ]
+   }
+  }
+ },
+ {
+  "name": "G27 float reflow when the desktop area shrinks",
+  "tree": "H[A .3, Desk .7 {F (.1,.2)-(.7,.7)}] + B@Desk.left",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   1,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     419,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     419,
+     855
+    ]
+   },
+   "B": {
+    "class": "live",
+    "frame": [
+     439,
+     35,
+     490,
+     855
+    ],
+    "real": [
+     439,
+     35,
+     490,
+     855
+    ]
+   },
+   "desktop": {
+    "class": "desktop",
+    "frame": [
+     939,
+     35,
+     491,
+     855
+    ],
+    "real": null
+   },
+   "F": {
+    "class": "float-live",
+    "frame": [
+     951,
+     206,
+     467,
+     428
+    ],
+    "real": [
+     951,
+     206,
+     467,
+     428
+    ]
+   }
+  }
+ },
+ {
+  "name": "G28 docked window 99.9% on-screen stays live",
+  "tree": "H[A,B], camera nudged so A straddles the left edge by 1 pt",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.004,
+   0,
+   0.504,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     -1,
+     35,
+     1420,
+     855
+    ],
+    "real": [
+     -1,
+     35,
+     1420,
+     855
+    ]
+   },
+   "B": {
+    "class": "clipped",
+    "frame": [
+     1429,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G29 docked window 98.7% on-screen is clipped",
+  "tree": "H[A,B], camera x 0.01..0.51",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.01,
+   0,
+   0.51,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "clipped",
+    "frame": [
+     -19,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   },
+   "B": {
+    "class": "clipped",
+    "frame": [
+     1411,
+     35,
+     1420,
+     855
+    ],
+    "real": null
+   }
+  }
+ },
+ {
+  "name": "G30 floating window straddling the edge is nudged in",
+  "tree": "Desk {F (.6,.2)-(.95,.6)}, camera x 0.3..0.8",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0.3,
+   0,
+   0.8,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "desktop": {
+    "class": "desktop",
+    "frame": [
+     -848,
+     35,
+     2850,
+     855
+    ],
+    "real": null
+   },
+   "F": {
+    "class": "float-nudged",
+    "frame": [
+     862,
+     206,
+     998,
+     342
+    ],
+    "real": [
+     442,
+     206,
+     998,
+     342
+    ]
+   }
+  }
+ },
+ {
+  "name": "G31 float straddling while the desktop area is mostly off-screen",
+  "tree": "H[A .7, Desk .3 {F (.1,.1)-(.9,.6)}], camera x 0..0.75",
+  "gaps": "inner 10/10, outer [10, 10, 10, 10]",
+  "camera": [
+   0,
+   0,
+   0.75,
+   1
+  ],
+  "note": "",
+  "expect": {
+   "A": {
+    "class": "live",
+    "frame": [
+     10,
+     35,
+     1325,
+     855
+    ],
+    "real": [
+     10,
+     35,
+     1325,
+     855
+    ]
+   },
+   "desktop": {
+    "class": "desktop",
+    "frame": [
+     1345,
+     35,
+     562,
+     855
+    ],
+    "real": null
+   },
+   "F": {
+    "class": "float-clipped",
+    "frame": [
+     1401,
+     121,
+     450,
+     427
+    ],
+    "real": null
+   }
+  }
+ }
+]

@@ -1,7 +1,7 @@
 import Foundation
 import LayoutModel
 
-/// Per-side outer inset around the tiling area.
+/// Per-side outer inset around the tiling area (legacy AppCore helper).
 public struct GapInsets: Equatable, Hashable, Codable, Sendable {
     public var left: Double
     public var right: Double
@@ -39,7 +39,6 @@ public struct Gaps: Equatable, Hashable, Codable, Sendable {
 
     public static let zero = Gaps()
 
-    /// Content rect after applying outer gaps to `displayRect`.
     public func contentRect(in displayRect: Rect) -> Rect {
         let x = displayRect.x + outer.left
         let y = displayRect.y + outer.top
