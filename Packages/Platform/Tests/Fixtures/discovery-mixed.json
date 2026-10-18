@@ -1,0 +1,114 @@
+{
+  "cgWindows": [
+    {
+      "windowNumber": 101,
+      "ownerPID": 4242,
+      "ownerName": "Safari",
+      "name": "Apple",
+      "layer": 0,
+      "bounds": { "x": 100, "y": 80, "width": 900, "height": 600 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 102,
+      "ownerPID": 4242,
+      "ownerName": "Safari",
+      "name": "Save As",
+      "layer": 0,
+      "bounds": { "x": 320, "y": 200, "width": 400, "height": 280 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 103,
+      "ownerPID": 4242,
+      "ownerName": "Safari",
+      "name": "Popover",
+      "layer": 0,
+      "bounds": { "x": 500, "y": 300, "width": 200, "height": 120 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 200,
+      "ownerPID": 99,
+      "ownerName": "Control Center",
+      "name": "Wi‑Fi",
+      "layer": 25,
+      "bounds": { "x": 1200, "y": 0, "width": 300, "height": 400 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 201,
+      "ownerPID": 88,
+      "ownerName": "Spotlight",
+      "name": "Spotlight",
+      "layer": 20,
+      "bounds": { "x": 400, "y": 200, "width": 600, "height": 400 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 300,
+      "ownerPID": 5151,
+      "ownerName": "Terminal",
+      "name": "bash — 80x24",
+      "layer": 0,
+      "bounds": { "x": 40, "y": 40, "width": 640, "height": 400 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 301,
+      "ownerPID": 5151,
+      "ownerName": "Terminal",
+      "name": "Offscreen",
+      "layer": 0,
+      "bounds": { "x": -2000, "y": 0, "width": 100, "height": 100 },
+      "isOnscreen": false
+    }
+  ],
+  "axWindows": [
+    {
+      "pid": 4242,
+      "title": "Apple",
+      "role": "AXWindow",
+      "subrole": "AXStandardWindow",
+      "frame": { "x": 100, "y": 80, "width": 900, "height": 600 },
+      "isMinimized": false,
+      "isFullscreen": false
+    },
+    {
+      "pid": 4242,
+      "title": "Save As",
+      "role": "AXWindow",
+      "subrole": "AXDialog",
+      "frame": { "x": 320, "y": 200, "width": 400, "height": 280 },
+      "isMinimized": false,
+      "isFullscreen": false
+    },
+    {
+      "pid": 4242,
+      "title": "Popover",
+      "role": "AXPopover",
+      "subrole": "AXUnknown",
+      "frame": { "x": 500, "y": 300, "width": 200, "height": 120 },
+      "isMinimized": false,
+      "isFullscreen": false
+    },
+    {
+      "pid": 4242,
+      "title": "Sheet",
+      "role": "AXSheet",
+      "subrole": "AXUnknown",
+      "frame": { "x": 200, "y": 200, "width": 300, "height": 200 },
+      "isMinimized": false,
+      "isFullscreen": false
+    },
+    {
+      "pid": 5151,
+      "title": "bash — 80x24",
+      "role": "AXWindow",
+      "subrole": "AXStandardWindow",
+      "frame": { "x": 40, "y": 40, "width": 640, "height": 400 },
+      "isMinimized": false,
+      "isFullscreen": false
+    }
+  ]
+}

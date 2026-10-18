@@ -45,7 +45,10 @@ let package = Package(
         .testTarget(
             name: "PlatformTests",
             dependencies: ["Platform"],
-            path: "Packages/Platform/Tests"
+            path: "Packages/Platform/Tests",
+            resources: [
+                .copy("Fixtures")
+            ]
         ),
         .target(
             name: "PlatformMac",
