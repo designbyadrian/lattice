@@ -1,0 +1,12 @@
+Lattice
+Copyright (c) 2026 Adrian
+
+Config format compatibility
+---------------------------
+Lattice's configuration file format is compatible with Dinky by Mikkel Malmberg
+(MIT License): https://github.com/mikker/Dinky
+
+Config format compatible with Dinky by Mikkel Malmberg (MIT).
+
+Lattice's own parser, validation, defaults, documentation, and implementation
+are independent. No Dinky source code is included.

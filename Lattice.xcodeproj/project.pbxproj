@@ -1,0 +1,377 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		0CA308B4104A998762DD120D /* Platform in Frameworks */ = {isa = PBXBuildFile; productRef = C4B95F547B03C23D4DBA1DEB /* Platform */; };
+		3F4B4A956DE3B276328CDDDB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54527EDD029C89330EAA82BC /* main.swift */; };
+		4046C402CA3AAC8E945F0C2E /* AppCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4283291640CADD913730C4E5 /* AppCore */; };
+		620BD72ED549B92059F97AE4 /* LayoutEngine in Frameworks */ = {isa = PBXBuildFile; productRef = C6E6F73D6D922EE3203F8536 /* LayoutEngine */; };
+		ABB28A64515D31747E672FE3 /* LayoutModel in Frameworks */ = {isa = PBXBuildFile; productRef = 44512FE7D327D88F0F930953 /* LayoutModel */; };
+		B3CB5D3B858763E69D1CFD7A /* Config in Frameworks */ = {isa = PBXBuildFile; productRef = 94F8F7FC9AC5CF59928000F7 /* Config */; };
+		B4F73914F1DD845652BDF939 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */; };
+		B7E7E21CE6CC0E8909D7C89F /* PlatformMac in Frameworks */ = {isa = PBXBuildFile; productRef = 70D708262151BAE9D0974CDC /* PlatformMac */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		1158EE73B3C9DCD96714F9F8 /* lattice */ = {isa = PBXFileReference; lastKnownFileType = folder; name = lattice; path = .; sourceTree = SOURCE_ROOT; };
+		54527EDD029C89330EAA82BC /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
+		FF3B53D4F9DD5D7C4B93487D /* Lattice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lattice.app; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		14A2C5F5B2F00EFB910846F0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4046C402CA3AAC8E945F0C2E /* AppCore in Frameworks */,
+				B3CB5D3B858763E69D1CFD7A /* Config in Frameworks */,
+				B7E7E21CE6CC0E8909D7C89F /* PlatformMac in Frameworks */,
+				ABB28A64515D31747E672FE3 /* LayoutModel in Frameworks */,
+				620BD72ED549B92059F97AE4 /* LayoutEngine in Frameworks */,
+				0CA308B4104A998762DD120D /* Platform in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		11DBE2CDA4885CF9FA6A4DC4 = {
+			isa = PBXGroup;
+			children = (
+				6466792F2F9A3932BF80B0C1 /* App */,
+				66C35027CA9C4775ED32E45A /* Packages */,
+				CCE89F12DC10AE075C3E4F67 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		171F9ED20753D8722C40DDCE /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */,
+				54527EDD029C89330EAA82BC /* main.swift */,
+			);
+			path = Sources;
+			sourceTree = "<group>";
+		};
+		6466792F2F9A3932BF80B0C1 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				171F9ED20753D8722C40DDCE /* Sources */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		66C35027CA9C4775ED32E45A /* Packages */ = {
+			isa = PBXGroup;
+			children = (
+				1158EE73B3C9DCD96714F9F8 /* lattice */,
+			);
+			path = Packages;
+			sourceTree = "<group>";
+		};
+		CCE89F12DC10AE075C3E4F67 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				FF3B53D4F9DD5D7C4B93487D /* Lattice.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		10F314C2EB47810D0E866617 /* Lattice */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C880ACEC5FD16DEFE7B3405B /* Build configuration list for PBXNativeTarget "Lattice" */;
+			buildPhases = (
+				A8D96910FE38A9E143FFFF6F /* Sources */,
+				14A2C5F5B2F00EFB910846F0 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Lattice;
+			packageProductDependencies = (
+				4283291640CADD913730C4E5 /* AppCore */,
+				94F8F7FC9AC5CF59928000F7 /* Config */,
+				70D708262151BAE9D0974CDC /* PlatformMac */,
+				44512FE7D327D88F0F930953 /* LayoutModel */,
+				C6E6F73D6D922EE3203F8536 /* LayoutEngine */,
+				C4B95F547B03C23D4DBA1DEB /* Platform */,
+			);
+			productName = Lattice;
+			productReference = FF3B53D4F9DD5D7C4B93487D /* Lattice.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		7BD34ED1C5FC8CFC6AD42CFA /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = A5AE16426385566F00251C16 /* Build configuration list for PBXProject "Lattice" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 11DBE2CDA4885CF9FA6A4DC4;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				4DD2FC220268A4491AD0F3FA /* XCLocalSwiftPackageReference "." */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = CCE89F12DC10AE075C3E4F67 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				10F314C2EB47810D0E866617 /* Lattice */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A8D96910FE38A9E143FFFF6F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B4F73914F1DD845652BDF939 /* AppDelegate.swift in Sources */,
+				3F4B4A956DE3B276328CDDDB /* main.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		24DD958047FD5F25F87EE01D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = App/Lattice.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_ARCHS = x86_64;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.designbyadrian.lattice;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		44CC0DAB5D84391ABB072109 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		5C17E605D33C3BD0464776E6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = arm64;
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_ENTITLEMENTS = App/Lattice.entitlements;
+				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_ARCHS = x86_64;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = App/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.designbyadrian.lattice;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		A0EC25BDAF179317419DD17A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A5AE16426385566F00251C16 /* Build configuration list for PBXProject "Lattice" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A0EC25BDAF179317419DD17A /* Debug */,
+				44CC0DAB5D84391ABB072109 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		C880ACEC5FD16DEFE7B3405B /* Build configuration list for PBXNativeTarget "Lattice" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5C17E605D33C3BD0464776E6 /* Debug */,
+				24DD958047FD5F25F87EE01D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCLocalSwiftPackageReference section */
+		4DD2FC220268A4491AD0F3FA /* XCLocalSwiftPackageReference "." */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = .;
+		};
+/* End XCLocalSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		4283291640CADD913730C4E5 /* AppCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = AppCore;
+		};
+		44512FE7D327D88F0F930953 /* LayoutModel */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LayoutModel;
+		};
+		70D708262151BAE9D0974CDC /* PlatformMac */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = PlatformMac;
+		};
+		94F8F7FC9AC5CF59928000F7 /* Config */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Config;
+		};
+		C4B95F547B03C23D4DBA1DEB /* Platform */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = Platform;
+		};
+		C6E6F73D6D922EE3203F8536 /* LayoutEngine */ = {
+			isa = XCSwiftPackageProductDependency;
+			productName = LayoutEngine;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 7BD34ED1C5FC8CFC6AD42CFA /* Project object */;
+}
