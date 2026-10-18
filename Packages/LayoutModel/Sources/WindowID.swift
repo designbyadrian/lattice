@@ -33,10 +33,18 @@ public struct WindowID: Hashable, Codable, Sendable, Equatable {
         )
     }
 
-    /// Loose match used when rematching after relaunch (ignores cgWindowID).
+    /// Loose match used when rematching within the same process session (ignores cgWindowID).
     public func fingerprintMatches(_ other: WindowID) -> Bool {
         processID == other.processID
             && bundleID == other.bundleID
             && titleFingerprint == other.titleFingerprint
+    }
+
+    /// Match across relaunch: bundle ID + title fingerprint (pid and cgWindowID change).
+    public func relaunchFingerprintMatches(_ other: WindowID) -> Bool {
+        guard let bundle = bundleID, let otherBundle = other.bundleID, bundle == otherBundle else {
+            return false
+        }
+        return titleFingerprint == other.titleFingerprint
     }
 }

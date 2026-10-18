@@ -135,36 +135,34 @@ public enum ConfigParser {
             catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["animations"] {
-            errors.append(contentsOf: stubTableKeys(
-                v, path: "animations", allowed: ["enabled", "duration-ms"]
-            ))
+            do { config.animations = try parseAnimations(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["drag"] {
-            errors.append(contentsOf: stubTableKeys(v, path: "drag", allowed: ["placeholders"]))
+            do { config.drag = try parseDrag(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["hooks"] {
-            errors.append(contentsOf: stubTableKeys(
-                v,
-                path: "hooks",
-                allowed: [
-                    "startup", "workspace-changing", "workspace-changed",
-                    "focus-changed", "mode-changed",
-                ]
-            ))
+            do { config.hooks = try parseHooks(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["workspace"] {
-            errors.append(contentsOf: parseWorkspaceTables(v))
+            do { config.workspaceConfigs = try parseWorkspaceTables(v, workspaces: config.workspaces) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["display"] {
-            // Pattern tables deferred; reject unknown nested keys lightly.
-            if !(v is [String: Any]) {
-                errors.append(.badType("table", keyPath: "display"))
-            }
+            do { config.displayGaps = try parseDisplayTables(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
         if let v = table["rules"] {
-            if !(v is [[String: Any]]) && !(v is [Any]) {
-                errors.append(.badType("array of tables", keyPath: "rules"))
-            }
+            do { config.rules = try parseRules(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
 
         if !errors.isEmpty {
@@ -397,18 +395,30 @@ public enum ConfigParser {
         return modes
     }
 
-    private static func parseWorkspaceTables(_ value: Any) -> [ConfigError] {
+    private static func parseWorkspaceTables(
+        _ value: Any,
+        workspaces: Int
+    ) throws -> [Int: WorkspaceConfig] {
         guard let table = value as? [String: Any] else {
-            return [.badType("table", keyPath: "workspace")]
+            throw ConfigError.badType("table", keyPath: "workspace")
         }
         var errors: [ConfigError] = []
+        var result: [Int: WorkspaceConfig] = [:]
         let allowed: Set<String> = ["tiling"]
         let unsupported: Set<String> = ["layout", "columns", "rows", "expand"]
         for (name, raw) in table {
+            guard let number = Int(name), number >= 1, number <= workspaces else {
+                errors.append(ConfigError(
+                    "workspace number must be in 1…\(workspaces)",
+                    keyPath: "workspace.\(name)"
+                ))
+                continue
+            }
             guard let inner = raw as? [String: Any] else {
                 errors.append(.badType("table", keyPath: "workspace.\(name)"))
                 continue
             }
+            var wc = WorkspaceConfig()
             for key in inner.keys {
                 if unsupported.contains(key) {
                     errors.append(.notSupported(
@@ -419,8 +429,208 @@ public enum ConfigParser {
                     errors.append(.unknownKey("workspace.\(name).\(key)"))
                 }
             }
+            if let v = inner["tiling"] {
+                if let b = v as? Bool {
+                    wc.tiling = b
+                } else {
+                    errors.append(.badType("bool", keyPath: "workspace.\(name).tiling"))
+                }
+            }
+            result[number] = wc
         }
-        return errors
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return result
+    }
+
+    private static func parseDisplayTables(_ value: Any) throws -> [DisplayPatternGaps] {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "display")
+        }
+        var errors: [ConfigError] = []
+        var result: [DisplayPatternGaps] = []
+        let allowed: Set<String> = ["inner", "outer"]
+        for (pattern, raw) in table {
+            guard let inner = raw as? [String: Any] else {
+                errors.append(.badType("table", keyPath: "display.\(pattern)"))
+                continue
+            }
+            for key in inner.keys where !allowed.contains(key) {
+                errors.append(.unknownKey("display.\(pattern).\(key)"))
+            }
+            do {
+                let gaps = try parseGapsTable(inner, path: "display.\(pattern)")
+                result.append(DisplayPatternGaps(pattern: pattern, gaps: gaps))
+            } catch let e as ConfigError {
+                errors.append(e)
+            } catch let e as ConfigErrorList {
+                errors.append(contentsOf: e.errors)
+            }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return result
+    }
+
+    private static func parseGapsTable(_ table: [String: Any], path: String) throws -> GapsConfig {
+        var gaps = GapsConfig.default
+        if let inner = table["inner"] {
+            gaps.inner = try parseGapValue(inner, path: "\(path).inner")
+        }
+        if let outer = table["outer"] {
+            gaps.outer = try parseGapValue(outer, path: "\(path).outer")
+        }
+        return gaps
+    }
+
+    private static func parseAnimations(_ value: Any) throws -> AnimationsConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "animations")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = ["enabled", "duration-ms"]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("animations.\(key)"))
+        }
+        var config = AnimationsConfig.default
+        if let v = table["enabled"] {
+            if let b = v as? Bool { config.enabled = b }
+            else { errors.append(.badType("bool", keyPath: "animations.enabled")) }
+        }
+        if let v = table["duration-ms"] {
+            if let n = intValue(v), n >= 0 { config.durationMs = n }
+            else { errors.append(.badType("non-negative integer", keyPath: "animations.duration-ms")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseDrag(_ value: Any) throws -> DragConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "drag")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = ["placeholders"]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("drag.\(key)"))
+        }
+        var config = DragConfig.default
+        if let v = table["placeholders"] {
+            if let b = v as? Bool { config.placeholders = b }
+            else { errors.append(.badType("bool", keyPath: "drag.placeholders")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseHooks(_ value: Any) throws -> HooksConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "hooks")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = [
+            "startup", "workspace-changing", "workspace-changed",
+            "focus-changed", "mode-changed",
+        ]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("hooks.\(key)"))
+        }
+        var config = HooksConfig.default
+        func hook(_ name: String) -> [Command] {
+            guard let raw = table[name] else { return [] }
+            do {
+                return try CommandParser.parseBindingValue(raw, keyPath: "hooks.\(name)")
+            } catch let e as ConfigError {
+                errors.append(e)
+                return []
+            } catch {
+                errors.append(ConfigError("\(error)", keyPath: "hooks.\(name)"))
+                return []
+            }
+        }
+        config.startup = hook("startup")
+        config.workspaceChanging = hook("workspace-changing")
+        config.workspaceChanged = hook("workspace-changed")
+        config.focusChanged = hook("focus-changed")
+        config.modeChanged = hook("mode-changed")
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseRules(_ value: Any) throws -> [WindowRule] {
+        let rows: [[String: Any]]
+        if let typed = value as? [[String: Any]] {
+            rows = typed
+        } else if let anyList = value as? [Any] {
+            rows = try anyList.enumerated().map { index, item in
+                guard let table = item as? [String: Any] else {
+                    throw ConfigError.badType("table", keyPath: "rules[\(index)]")
+                }
+                return table
+            }
+        } else {
+            throw ConfigError.badType("array of tables", keyPath: "rules")
+        }
+
+        var errors: [ConfigError] = []
+        var rules: [WindowRule] = []
+        let allowed: Set<String> = ["app-id", "app-name", "title", "kind", "run"]
+
+        for (index, table) in rows.enumerated() {
+            let path = "rules[\(index)]"
+            for key in table.keys where !allowed.contains(key) {
+                errors.append(.unknownKey("\(path).\(key)"))
+            }
+            var rule = WindowRule(run: [])
+            if let v = table["app-id"] {
+                if let s = v as? String { rule.appId = s }
+                else { errors.append(.badType("string", keyPath: "\(path).app-id")) }
+            }
+            if let v = table["app-name"] {
+                if let s = v as? String {
+                    if (try? NSRegularExpression(pattern: s, options: [.caseInsensitive])) == nil {
+                        errors.append(ConfigError("invalid regex", keyPath: "\(path).app-name"))
+                    } else {
+                        rule.appName = s
+                    }
+                } else {
+                    errors.append(.badType("string", keyPath: "\(path).app-name"))
+                }
+            }
+            if let v = table["title"] {
+                if let s = v as? String {
+                    if (try? NSRegularExpression(pattern: s, options: [.caseInsensitive])) == nil {
+                        errors.append(ConfigError("invalid regex", keyPath: "\(path).title"))
+                    } else {
+                        rule.title = s
+                    }
+                } else {
+                    errors.append(.badType("string", keyPath: "\(path).title"))
+                }
+            }
+            if let v = table["kind"] {
+                if let s = v as? String, let kind = WindowKind(rawValue: s) {
+                    rule.kind = kind
+                } else {
+                    errors.append(.badType("'normal'|'dialog'|'sheet'|'panel'", keyPath: "\(path).kind"))
+                }
+            }
+            if let v = table["run"] {
+                if let s = v as? String {
+                    rule.run = [s]
+                } else if let list = v as? [Any], let strings = list as? [String] {
+                    rule.run = strings
+                } else if let list = v as? [String] {
+                    rule.run = list
+                } else {
+                    errors.append(.badType("string or array of strings", keyPath: "\(path).run"))
+                }
+            } else {
+                errors.append(ConfigError("run is required", keyPath: "\(path).run"))
+            }
+            // Skip commands that fail to parse (PLAN §7a); keep the strings for LayoutCommand.parse.
+            rules.append(rule)
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return rules
     }
 
     private static func parseWorkspaceToDisplay(
@@ -475,18 +685,6 @@ public enum ConfigParser {
             }
             return .nameSubstring(raw)
         }
-    }
-
-    private static func stubTableKeys(
-        _ value: Any,
-        path: String,
-        allowed: Set<String>?
-    ) -> [ConfigError] {
-        guard let table = value as? [String: Any] else {
-            return [.badType("table", keyPath: path)]
-        }
-        guard let allowed else { return [] }
-        return table.keys.filter { !allowed.contains($0) }.map { .unknownKey("\(path).\($0)") }
     }
 
     // MARK: - Numbers

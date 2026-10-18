@@ -24,6 +24,15 @@ public enum OverviewPreviewsMode: String, Sendable, Codable, Equatable {
     case off
 }
 
+/// Per-workspace tiling override from `[workspace.<n>]`.
+public struct WorkspaceConfig: Sendable, Equatable {
+    public var tiling: Bool?
+
+    public init(tiling: Bool? = nil) {
+        self.tiling = tiling
+    }
+}
+
 /// Typed Lattice configuration (all keys optional in the file; missing → defaults).
 public struct LatticeConfig: Sendable, Equatable {
     public var startAtLogin: Bool
@@ -39,6 +48,15 @@ public struct LatticeConfig: Sendable, Equatable {
     public var focusFollowsMouse: FocusFollowsMouseConfig
     /// `[workspace-to-display]` patterns (unlisted → main).
     public var workspaceToDisplay: [Int: [DisplayPattern]]
+    /// `[workspace.<n>]` tiling overrides (1-based keys).
+    public var workspaceConfigs: [Int: WorkspaceConfig]
+    /// `[display.<pattern>]` gap overrides.
+    public var displayGaps: [DisplayPatternGaps]
+    public var animations: AnimationsConfig
+    public var drag: DragConfig
+    public var hooks: HooksConfig
+    /// Parsed `[[rules]]` in file order.
+    public var rules: [WindowRule]
 
     public init(
         startAtLogin: Bool = true,
@@ -52,7 +70,13 @@ public struct LatticeConfig: Sendable, Equatable {
         modes: [String: ModeConfig]? = nil,
         borders: BordersConfig = .default,
         focusFollowsMouse: FocusFollowsMouseConfig = .default,
-        workspaceToDisplay: [Int: [DisplayPattern]] = [:]
+        workspaceToDisplay: [Int: [DisplayPattern]] = [:],
+        workspaceConfigs: [Int: WorkspaceConfig] = [:],
+        displayGaps: [DisplayPatternGaps] = [],
+        animations: AnimationsConfig = .default,
+        drag: DragConfig = .default,
+        hooks: HooksConfig = .default,
+        rules: [WindowRule] = []
     ) {
         self.startAtLogin = startAtLogin
         self.workspaces = workspaces
@@ -66,6 +90,12 @@ public struct LatticeConfig: Sendable, Equatable {
         self.borders = borders
         self.focusFollowsMouse = focusFollowsMouse
         self.workspaceToDisplay = workspaceToDisplay
+        self.workspaceConfigs = workspaceConfigs
+        self.displayGaps = displayGaps
+        self.animations = animations
+        self.drag = drag
+        self.hooks = hooks
+        self.rules = rules
     }
 
     public static let `default` = LatticeConfig()
@@ -78,5 +108,13 @@ public struct LatticeConfig: Sendable, Equatable {
     /// Plan consumed by the P6 reconcile planner.
     public var workspacePlan: WorkspacePlan {
         WorkspacePlan(count: workspaces, workspaceToDisplay: workspaceToDisplay)
+    }
+
+    /// Config surface for `RuleEngine.classify`.
+    public var ruleClassificationConfig: RuleClassificationConfig {
+        RuleClassificationConfig(
+            defaultTiling: defaultTiling,
+            floatWindowsWithoutFullscreen: floatWindowsWithoutFullscreen
+        )
     }
 }

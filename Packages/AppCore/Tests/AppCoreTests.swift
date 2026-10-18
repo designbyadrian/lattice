@@ -9,7 +9,7 @@ import Config
 }
 
 @Test func coordinatorHoldsConfig() {
-    let c = AppCoordinator(platform: FakePlatform())
+    let c = AppCoordinator(platform: FakePlatform(), layoutStore: .inMemory())
     #expect(c.config.workspaces == 1)
 }
 
@@ -29,7 +29,7 @@ import Config
         frame: CGRectCodable(x: 500, y: 50, width: 400, height: 300)
     )
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
 
     #expect(platform.setFrameCallCount >= 2)
@@ -54,7 +54,7 @@ import Config
         frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [excluded])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     coordinator.globalExcludedApps = ["com.excluded.app"]
     await coordinator.start()
 
@@ -75,7 +75,7 @@ import Config
         isFullscreen: false
     )
     let platform = FakePlatform(windows: [win])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
     platform.resetAppliedFrames()
 
@@ -117,7 +117,7 @@ import Config
         frame: CGRectCodable(x: 10, y: 10, width: 100, height: 100)
     )
     let platform = FakePlatform(windows: [win])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
     platform.removeWindow(id: 7)
     await coordinator.handle(.windowDestroyed(id: 7, pid: 400))
@@ -133,7 +133,7 @@ import Config
     let w1 = WindowRef(id: 1, pid: 1, title: "A", frame: CGRectCodable(x: 0, y: 0, width: 100, height: 100))
     let w2 = WindowRef(id: 2, pid: 2, title: "B", frame: CGRectCodable(x: 100, y: 0, width: 100, height: 100))
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
     await coordinator.floatAll()
 
@@ -151,7 +151,7 @@ import Config
         frame: CGRectCodable(x: -5000, y: -5000, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [win])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
     // Force lastFrames off-screen.
     // prepareSafeQuit uses lastFrames from solve (on-screen) — also call with applied frames.
@@ -179,7 +179,7 @@ import Config
         frame: CGRectCodable(x: 200, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [win, other])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
 
     let before = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }?.root

@@ -53,12 +53,12 @@ let package = Package(
         ),
         .target(
             name: "PlatformMac",
-            dependencies: ["Platform", "LayoutModel", "LayoutEngine", "Config"],
+            dependencies: ["Platform", "LayoutModel", "LayoutEngine", "Config", "AppCore"],
             path: "Packages/PlatformMac/Sources"
         ),
         .testTarget(
             name: "PlatformMacTests",
-            dependencies: ["PlatformMac", "Platform", "LayoutModel", "LayoutEngine", "Config"],
+            dependencies: ["PlatformMac", "Platform", "LayoutModel", "LayoutEngine", "Config", "AppCore"],
             path: "Packages/PlatformMac/Tests"
         ),
         .target(
@@ -94,7 +94,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "LatticeCLI",
-            dependencies: ["Config", "LayoutModel"],
+            dependencies: ["Config", "LayoutModel", "AppCore"],
             path: "Packages/LatticeCLI/Sources"
         ),
     ]

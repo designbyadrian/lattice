@@ -6,6 +6,17 @@ public enum WindowKind: String, Codable, Sendable, Equatable, CaseIterable {
     case dialog
     case sheet
     case panel
+
+    /// Map AX subrole → Lattice kind (PLAN §7a).
+    /// Missing subrole defaults to `normal` so discovery stubs stay tileable.
+    public static func from(subrole: String?) -> WindowKind {
+        switch subrole {
+        case nil, "AXStandardWindow": return .normal
+        case "AXDialog", "AXSystemDialog": return .dialog
+        case "AXSheet": return .sheet
+        default: return .panel
+        }
+    }
 }
 
 /// Observable facts about a window used for rule matching.

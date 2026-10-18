@@ -7,7 +7,7 @@ import Platform
 @Test func workspaceCommandShowsHUDUnderSafetyNet() async {
     let spaces = FakeSpacesController(backend: .currentSpaceOnly)
     let platform = FakePlatform(spacesController: spaces)
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.execute(.workspace(.number(2)))
     #expect(coordinator.lastHUDMessage == SpacesSafetyNetCopy.hudMessage)
     #expect(spaces.switches.isEmpty)
@@ -35,7 +35,7 @@ import Platform
     let platform = FakePlatform(spacesController: spaces)
     var config = LatticeConfig.default
     config.workspaces = 2
-    let coordinator = AppCoordinator(platform: platform, config: config)
+    let coordinator = AppCoordinator(platform: platform, config: config, layoutStore: .inMemory())
     await coordinator.start()
     await coordinator.execute(.workspace(.number(2)))
     #expect(spaces.switches.contains(where: { $0.0 == SpaceID(rawValue: 2) }))
@@ -65,7 +65,7 @@ import Platform
     let platform = FakePlatform(spacesController: spaces)
     var config = LatticeConfig.default
     config.workspaces = 2
-    let coordinator = AppCoordinator(platform: platform, config: config)
+    let coordinator = AppCoordinator(platform: platform, config: config, layoutStore: .inMemory())
     await coordinator.start()
     await coordinator.execute(.workspace(.number(2)))
     await coordinator.execute(.workspaceBackAndForth)
@@ -101,7 +101,7 @@ import Platform
     let platform = FakePlatform(windows: [win], spacesController: spaces)
     var config = LatticeConfig.default
     config.workspaces = 2
-    let coordinator = AppCoordinator(platform: platform, config: config)
+    let coordinator = AppCoordinator(platform: platform, config: config, layoutStore: .inMemory())
     await coordinator.start()
     await coordinator.execute(.moveWindowToWorkspace(.number(2), follow: false))
     #expect(spaces.movedWindows.contains(where: { $0.ids == [9] && $0.space.rawValue == 2 }))
@@ -121,7 +121,7 @@ import Platform
         ]
     )
     let platform = FakePlatform(spacesController: spaces)
-    let coordinator = AppCoordinator(platform: platform, config: .default)
+    let coordinator = AppCoordinator(platform: platform, config: .default, layoutStore: .inMemory())
     await coordinator.start()
     #expect(coordinator.spaceBinding.binding[1] == SpaceID(rawValue: 7))
     coordinator.stop()
@@ -130,6 +130,6 @@ import Platform
 @Test func spacesMenuNoticeExposed() {
     let spaces = FakeSpacesController(backend: .currentSpaceOnly)
     let platform = FakePlatform(spacesController: spaces)
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     #expect(coordinator.spacesMenuNotice == SpacesSafetyNetCopy.menuNotice)
 }

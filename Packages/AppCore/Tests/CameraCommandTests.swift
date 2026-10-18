@@ -15,7 +15,7 @@ import Config
         frame: CGRectCodable(x: 300, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
     platform.resetAppliedFrames()
 
@@ -36,7 +36,7 @@ import Config
         frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
 
     await coordinator.execute(.zoom(.window))
@@ -60,7 +60,7 @@ import Config
         frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1])
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
 
     await coordinator.execute(.overview)
@@ -79,7 +79,7 @@ import Config
         frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1], accessibilityReduceMotion: true)
-    let coordinator = AppCoordinator(platform: platform)
+    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
     await coordinator.start()
     platform.resetAppliedFrames()
     await coordinator.execute(.zoom(.all))

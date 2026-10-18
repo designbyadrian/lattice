@@ -109,6 +109,14 @@ public enum DefaultConfigText {
         ctrl-alt-j = 'dock down'
         ctrl-alt-k = 'dock up'
         ctrl-alt-l = 'dock right'
+
+        # Optional tables (defaults apply when omitted):
+        # [animations] enabled = true, duration-ms = 300
+        # [drag] placeholders = true
+        # [hooks] startup / workspace-changing / workspace-changed / focus-changed / mode-changed
+        # [workspace.1] tiling = true
+        # [display.<pattern>] inner / outer gaps
+        # [[rules]] app-id / app-name / title / kind + required run
         """
     }
 }
