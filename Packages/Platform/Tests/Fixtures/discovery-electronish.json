@@ -1,0 +1,42 @@
+{
+  "cgWindows": [
+    {
+      "windowNumber": 9001,
+      "ownerPID": 7000,
+      "ownerName": "Code",
+      "name": "main.ts — lattice",
+      "layer": 0,
+      "bounds": { "x": 0, "y": 25, "width": 1280, "height": 800 },
+      "isOnscreen": true
+    },
+    {
+      "windowNumber": 9002,
+      "ownerPID": 7000,
+      "ownerName": "Code",
+      "name": "",
+      "layer": 0,
+      "bounds": { "x": 10, "y": 35, "width": 200, "height": 40 },
+      "isOnscreen": true
+    }
+  ],
+  "axWindows": [
+    {
+      "pid": 7000,
+      "title": "main.ts — lattice",
+      "role": "AXWindow",
+      "subrole": "AXStandardWindow",
+      "frame": { "x": 0, "y": 25, "width": 1280, "height": 800 },
+      "isMinimized": false,
+      "isFullscreen": false
+    },
+    {
+      "pid": 7000,
+      "title": "",
+      "role": "AXWindow",
+      "subrole": "AXFloatingWindow",
+      "frame": { "x": 10, "y": 35, "width": 200, "height": 40 },
+      "isMinimized": false,
+      "isFullscreen": false
+    }
+  ]
+}

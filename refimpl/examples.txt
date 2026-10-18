@@ -1,0 +1,109 @@
+## E1 insert C at right edge of B, same axis, default insert-takes-from = 'target' (C takes half of B)
+  before: H[A 0.6, B 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 855)
+  after:  H[A 0.6, B 0.2, C 0.2] 
+          A=(10, 35, 848, 855); B=(868, 35, 276, 855); C=(1154, 35, 276, 855)
+## E2 same, insert-takes-from = 'row' (C takes 1/(n+1) from the whole row)
+  before: H[A 0.6, B 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 855)
+  after:  H[A 0.4, B 0.2667, C 0.3333] 
+          A=(10, 35, 562, 855); B=(582, 35, 371, 855); C=(963, 35, 467, 855)
+## E3 insert C at bottom edge of B (cross axis -> wrap B)
+  before: H[A 0.6, B 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 855)
+  after:  H[A 0.6, V[B 0.5, C 0.5] 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); C=(868, 468, 562, 422)
+## E4 screen-edge dock D at left (root is H -> sibling at index 0)
+  before: H[A 0.6, B 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 855)
+  after:  H[D 0.5, A 0.3, B 0.2] 
+          A=(725, 35, 419, 855); B=(1154, 35, 276, 855); D=(10, 35, 705, 855)
+## E5 screen-edge dock D at top (root is H -> wrap root)
+  before: H[A 0.6, B 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 855)
+  after:  V[D 0.5, H[A 0.6, B 0.4] 0.5] 
+          A=(10, 468, 848, 422); B=(868, 468, 562, 422); D=(10, 35, 1420, 423)
+## E6 drop into the desktop area: F (900x700 natural) then G (400x300) twice-cascaded
+  before: H[A 0.5, Desk 0.5] 
+          A=(10, 35, 705, 855); desktop=(725, 35, 705, 855)
+  after:  H[A 0.5, Desk{F,G} 0.5] 
+          A=(10, 35, 705, 855); F=(831, 271, 493, 384); G=(902, 337, 400, 300); desktop=(725, 35, 705, 855)
+## E7 tab C onto centre of B
+  before: H[A 0.5, B 0.5] 
+          A=(10, 35, 705, 855); B=(725, 35, 705, 855)
+  after:  H[A 0.5, Tabs(B,C; active=C) 0.5] 
+          A=(10, 35, 705, 855); B=(725, 63, 705, 827) hidden-tab; C=(725, 63, 705, 827)
+## E8 close X right after docking it beside B: the donor B gets its space back (exact undo)
+  before: H[A 0.5, B 0.2, C 0.3] 
+          A=(10, 35, 705, 855); B=(725, 35, 276, 855); C=(1011, 35, 419, 855)
+   (after docking X right of B: H[A 0.5, B 0.1, X 0.1, C 0.3] )
+  after:  H[A 0.5, B 0.2, C 0.3] 
+          A=(10, 35, 705, 855); B=(725, 35, 276, 855); C=(1011, 35, 419, 855)
+## E8b donor no longer adjacent (B closed first): X's space is shared with the row
+  before: H[A 0.5, B 0.2, C 0.3] 
+          A=(10, 35, 705, 855); B=(725, 35, 276, 855); C=(1011, 35, 419, 855)
+   (X docked beside B, then B closed: H[A 0.5556, X 0.1111, C 0.3333] )
+  after:  H[A 0.625, C 0.375] 
+          A=(10, 35, 884, 855); C=(904, 35, 526, 855)
+## E8c remove B, close-gives-to = 'row'
+  before: H[A 0.5, B 0.2, C 0.3] 
+          A=(10, 35, 705, 855); B=(725, 35, 276, 855); C=(1011, 35, 419, 855)
+  after:  H[A 0.625, C 0.375] 
+          A=(10, 35, 884, 855); C=(904, 35, 526, 855)
+## E9 remove B, close-gives-to = 'neighbour' (the next sibling C takes all)
+  before: H[A 0.5, B 0.2, C 0.3] 
+          A=(10, 35, 705, 855); B=(725, 35, 276, 855); C=(1011, 35, 419, 855)
+  after:  H[A 0.5, C 0.5] 
+          A=(10, 35, 705, 855); C=(725, 35, 705, 855)
+## E10 normalize: single-child split, same-axis flatten, invalid ratio
+  before: H[V[A 1] 0.3, H[B 1, C 3] 0.5, D nan] 
+          (not solved: trees are always normalized before solving)
+  after:  H[A 0.3659, B 0.1524, C 0.4573, D 0.02439] 
+          A=(10, 35, 463, 855); B=(483, 35, 186, 855); C=(679, 35, 581, 855); D=(1270, 35, 160, 855)
+## E11 seam drag +250 pt between A and the column (clamped by the column's min)
+  before: H[A 0.4, V[B 0.5, C 0.5] 0.35, D 0.25] 
+          A=(10, 35, 562, 855); B=(582, 35, 491, 423); C=(582, 468, 491, 422); D=(1083, 35, 347, 855)
+  after:  H[A 0.5748, V[B 0.5, C 0.5] 0.1752, D 0.25] 
+          A=(10, 35, 812, 855); B=(832, 35, 241, 423); C=(832, 468, 241, 422); D=(1083, 35, 347, 855)
+## E12 seam drag +900 pt (clamped: B keeps its 170 pt slot minimum)
+  before: H[A 0.5, B 0.5] 
+          A=(10, 35, 705, 855); B=(725, 35, 705, 855)
+  after:  H[A 0.8811, B 0.1189] 
+          A=(10, 35, 1250, 855); B=(1270, 35, 160, 855)
+## E13 toggle axis of inner column -> becomes H -> flattened into row
+  before: H[A 0.6, V[B 0.5, C 0.5] 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); C=(868, 468, 562, 422)
+  after:  H[A 0.6, B 0.2, C 0.2] 
+          A=(10, 35, 848, 855); B=(868, 35, 276, 855); C=(1154, 35, 276, 855)
+## E14 undock B (keeps its frame, clamped into the desktop area)
+  before: H[A 0.4, B 0.3, Desk 0.3] 
+          A=(10, 35, 562, 855); B=(582, 35, 419, 855); desktop=(1011, 35, 419, 855)
+  after:  H[A 0.5714, Desk{B} 0.4286] 
+          A=(10, 35, 807, 855); B=(839, 47, 419, 831); desktop=(827, 35, 603, 855)
+## E15 desktop hide then show (remembered ratio and slot)
+  before: H[A 0.6, V[B 0.5, Desk 0.5] 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); desktop=(868, 468, 562, 422)
+   (hidden: H[A 0.6, B 0.4] )
+  after:  H[A 0.6, V[B 0.5, Desk 0.5] 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); desktop=(868, 468, 562, 422)
+## E16 desktop re-show when its old parent is gone (re-show ratio 0.33 at right)
+  before: H[A 0.6, V[B 0.5, Desk 0.5] 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); desktop=(868, 468, 562, 422)
+   (hidden, then B closed: A )
+  after:  H[A 0.67, Desk 0.33] 
+          A=(10, 35, 948, 855); desktop=(968, 35, 462, 855)
+## E17 dock-all: floats A,B,C (x order) docked left of the desktop area, which stays
+  before: H[P 0.5, Desk 0.5] 
+          P=(10, 35, 705, 855); desktop=(725, 35, 705, 855)
+  after:  H[P 0.2, A 0.2, B 0.2, C 0.2, Desk 0.2] 
+          A=(296, 35, 276, 855); B=(582, 35, 276, 855); C=(868, 35, 276, 855); P=(10, 35, 276, 855); desktop=(1154, 35, 276, 855)
+## E18 unmanage-all: every docked window floats where it is
+  before: H[A 0.6, V[B 0.5, Desk 0.5] 0.4] 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); desktop=(868, 468, 562, 422)
+  after:  Desk{A,B} 
+          A=(10, 35, 848, 855); B=(868, 35, 562, 423); desktop=(10, 35, 1420, 855)
+## E19 desktop area shrinks: float keeps its size, centre stays proportional, clamped
+  before: H[A 0.3, Desk{F} 0.7] 
+          A=(10, 35, 419, 855); F=(538, 206, 595, 428); desktop=(439, 35, 991, 855)
+  after:  H[A 0.3, B 0.35, Desk{F} 0.35] 
+          A=(10, 35, 419, 855); B=(439, 35, 490, 855); F=(951, 206, 467, 428); desktop=(939, 35, 491, 855)

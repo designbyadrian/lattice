@@ -1,0 +1,99 @@
+name: Release
+
+# Tag push (e.g. v0.1.0) builds arm64, gates on release-strings, then placeholders
+# for sign / notarize / staple / DMG / upload / appcast.
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Build & release (arm64)
+    runs-on: macos-15
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Select Xcode
+        run: sudo xcode-select -s /Applications/Xcode.app
+
+      - name: Swift version
+        run: swift --version
+
+      - name: Resolve packages / generate project
+        run: |
+          if command -v xcodegen >/dev/null 2>&1; then
+            xcodegen generate
+          else
+            brew install xcodegen
+            xcodegen generate
+          fi
+
+      - name: Build Lattice.app (arm64 Release)
+        run: |
+          xcodebuild \
+            -project Lattice.xcodeproj \
+            -scheme Lattice \
+            -configuration Release \
+            -derivedDataPath build \
+            -arch arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            build
+          APP="$(find build -name 'Lattice.app' -type d | head -1)"
+          echo "APP=$APP" >> "$GITHUB_ENV"
+          test -n "$APP"
+          test -x "$APP/Contents/MacOS/Lattice"
+
+      - name: Release strings check gate
+        run: ./scripts/check-release-strings.sh "$APP/Contents/MacOS/Lattice"
+
+      # --- Placeholders: wire secrets from 1Password → GitHub Actions before enabling ---
+      #
+      # Required secrets (document only; steps below are no-ops until filled):
+      #   DEVELOPER_ID_APPLICATION_CERT   — Developer ID Application .p12 (base64)
+      #   DEVELOPER_ID_CERT_PASSWORD      — password for the .p12
+      #   APPLE_ID                        — Apple ID for notarytool
+      #   APPLE_TEAM_ID                   — Apple Developer Team ID
+      #   APPLE_APP_SPECIFIC_PASSWORD     — app-specific password for notarytool
+      #   SPARKLE_EDDSA_PRIVATE_KEY       — Sparkle EdDSA private key (NEVER commit)
+      #   SPARKLE_EDDSA_PUBLIC_KEY        — public key injected into Info.plist at release
+      #
+      # Also backup the same material in 1Password (see SECURITY.md).
+
+      - name: "Placeholder: codesign (Developer ID + hardened runtime)"
+        run: |
+          echo "::notice::Skipping codesign — set DEVELOPER_ID_* secrets to enable."
+          echo "Would run: codesign --force --options runtime --sign \"Developer ID Application: …\" --deep \"$APP\""
+
+      - name: "Placeholder: notarize + staple"
+        run: |
+          echo "::notice::Skipping notarize — set APPLE_ID / APPLE_TEAM_ID / APPLE_APP_SPECIFIC_PASSWORD to enable."
+          echo "Would run: xcrun notarytool submit … && xcrun stapler staple \"$APP\""
+
+      - name: "Placeholder: create DMG"
+        run: |
+          echo "::notice::Skipping DMG — enable after signing/notarizing."
+          mkdir -p dist
+          # Example: hdiutil create -volname Lattice -srcfolder "$APP" -ov -format UDZO dist/Lattice.dmg
+          ditto -c -k --sequesterRsrc --keepParent "$APP" "dist/Lattice-unsigned.zip"
+          echo "Wrote unsigned zip for CI artifact validation."
+
+      - name: Upload unsigned artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lattice-arm64-unsigned
+          path: dist/
+
+      - name: "Placeholder: GitHub Release upload"
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          echo "::notice::Skipping gh release upload — enable after notarized DMG exists."
+          echo "Would run: gh release create \"${GITHUB_REF_NAME}\" dist/Lattice.dmg --generate-notes"
+
+      - name: "Placeholder: Sparkle appcast (EdDSA-sign + publish)"
+        run: |
+          echo "::notice::Skipping appcast — set SPARKLE_EDDSA_PRIVATE_KEY and host Pages/release asset."
+          echo "Would: generate_appcast → sign with ed25519 → publish to SUFeedURL host."
+          echo "Info.plist SUPublicEDKey must match SPARKLE_EDDSA_PUBLIC_KEY (from secrets)."
