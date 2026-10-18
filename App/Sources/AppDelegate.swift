@@ -15,6 +15,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var socketServer: CommandSocketServer?
     private var bordersOverlay: BordersOverlayController?
     private var tabStrip: TabStripOverlay?
+    private var onboarding: OnboardingController?
+    private var permissionMonitor: PermissionMonitor?
+    private var updater: UpdaterController?
+    private var inputSafetyNet: InputSafetyNetState = .full
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let loader = ConfigLoader()
@@ -34,25 +38,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             )
             button.image?.isTemplate = true
         }
-        item.menu = buildMenu()
         statusItem = item
 
         let server = MacWindowServer()
         windowServer = server
         syncOverviewConfig(server, config: config)
 
+        // Derive input safety net from P5a matrix outcome (pending → full until FAIL signed).
+        let osMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        inputSafetyNet = InputSafetyNetState.from(
+            tapCreated: true,
+            inputMonitoringPrompted: false,
+            osMajor: osMajor
+        )
+
         let coordinator = AppCoordinator(platform: server, config: config)
         self.coordinator = coordinator
+        coordinator.focusWindowHandler = { id in
+            guard let cgID = id.cgWindowID else { return }
+            await MacWindowWriter.shared.raise(windowID: cgID, pid: id.processID)
+        }
 
         let borders = BordersOverlayController()
         borders.config = config.borders
-        borders.increaseContrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+        borders.increaseContrast = VisualAccessibility.increaseContrast
         bordersOverlay = borders
 
         let tabs = TabStripOverlay()
         tabs.onSelect = { [weak self] _, index in
             Task {
-                // Walk tab selection toward the clicked index.
                 if index >= 0 {
                     await self?.coordinator?.execute(.tab(.next))
                 }
@@ -64,8 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 guard let self else { return }
                 self.bordersOverlay?.config = self.coordinator?.config.borders ?? .default
-                self.bordersOverlay?.increaseContrast =
-                    NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+                self.bordersOverlay?.increaseContrast = VisualAccessibility.increaseContrast
                 let focused = self.coordinator?.focusedWindowID
                 var bundles: [WindowID: String?] = [:]
                 for id in frames.keys {
@@ -97,15 +110,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         assert(
             OnboardingStub.recordingIndicatorDisclosure.contains("recording indicator"),
-            "Onboarding stub must disclose the Screen Recording indicator"
+            "Onboarding must disclose the Screen Recording indicator"
         )
+
+        let monitor = PermissionMonitor()
+        monitor.onChange = { [weak self] in self?.rebuildMenu() }
+        monitor.start()
+        permissionMonitor = monitor
+
+        let sparkle = UpdaterController()
+        sparkle.onPreferenceChanged = { [weak self] in self?.rebuildMenu() }
+        sparkle.start()
+        updater = sparkle
+
+        rebuildMenu()
 
         if coordinator.systemPrefsBackup.needsCrashRecoveryOffer() {
             offerPrefsRestore()
         }
 
-        Task {
-            await coordinator.start()
+        if !OnboardingController.isCompleted {
+            let flow = OnboardingController(inputSafetyNet: inputSafetyNet) { [weak self] in
+                Task { await self?.coordinator?.start() }
+            }
+            onboarding = flow
+            flow.present()
+        } else {
+            Task {
+                await coordinator.start()
+            }
         }
     }
 
@@ -146,6 +179,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func buildMenu() -> NSMenu {
         let menu = NSMenu()
         menu.addItem(NSMenuItem(title: "Lattice", action: nil, keyEquivalent: ""))
+        if let warning = permissionMonitor?.menuWarningTitle {
+            let item = NSMenuItem(
+                title: warning,
+                action: #selector(openAccessibilitySettings),
+                keyEquivalent: ""
+            )
+            item.target = self
+            menu.addItem(item)
+        }
+        if inputSafetyNet.reducedInputFeatures, let notice = inputSafetyNet.notice {
+            menu.addItem(NSMenuItem(title: notice, action: nil, keyEquivalent: ""))
+        }
         if let err = configLoader?.lastError {
             let item = NSMenuItem(
                 title: "Config error: \(err.errors.first?.description ?? "unknown")",
@@ -155,10 +200,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.target = self
             menu.addItem(item)
         }
+        if let spacesNotice = coordinator?.spacesMenuNotice {
+            menu.addItem(NSMenuItem(title: spacesNotice, action: nil, keyEquivalent: ""))
+        }
         menu.addItem(.separator())
         menu.addItem(menuItem("Settings…", #selector(openSettings), ","))
         menu.addItem(menuItem("Float All", #selector(floatAll)))
         menu.addItem(.separator())
+        if let updater {
+            menu.addItem(menuItem("Check for Updates…", #selector(checkForUpdates)))
+            menu.addItem(updater.toggleAutomaticChecksMenuItem())
+            menu.addItem(.separator())
+        }
         menu.addItem(menuItem("Override macOS tiling…", #selector(overrideTiling)))
         menu.addItem(menuItem("Restore macOS settings & quit", #selector(restorePrefsAndQuit)))
         menu.addItem(.separator())
@@ -174,6 +227,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
         item.target = self
         return item
+    }
+
+    @objc private func openAccessibilitySettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
+        if let url { NSWorkspace.shared.open(url) }
+    }
+
+    @objc private func checkForUpdates() {
+        updater?.checkForUpdates()
     }
 
     @objc private func openSettings() {
@@ -257,6 +319,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             socketServer?.stop()
             bordersOverlay?.hideAll()
             tabStrip?.hideAll()
+            permissionMonitor?.stop()
             NSApp.terminate(nil)
         }
     }
@@ -265,6 +328,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         try? coordinator?.systemPrefsBackup.markCleanShutdown()
         socketServer?.stop()
         coordinator?.stop()
+        permissionMonitor?.stop()
     }
 
     private func syncOverviewConfig(_ server: MacWindowServer, config: LatticeConfig) {

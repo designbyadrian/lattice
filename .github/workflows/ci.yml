@@ -34,3 +34,6 @@ jobs:
 
       - name: Release strings script syntax
         run: bash -n scripts/check-release-strings.sh
+
+      - name: CHANGELOG present
+        run: test -f CHANGELOG.md && grep -q '0.1.0' CHANGELOG.md

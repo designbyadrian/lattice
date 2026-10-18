@@ -28,9 +28,10 @@ public final class OverviewTileView: NSView {
         bounds.fill()
 
         if showsSplitLines || presentation == .groupTile {
-            NSColor.white.withAlphaComponent(0.35).setStroke()
+            let contrast = NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
+            (contrast ? NSColor.labelColor : NSColor.white.withAlphaComponent(0.35)).setStroke()
             let path = NSBezierPath()
-            path.lineWidth = 1
+            path.lineWidth = contrast ? 2 : 1
             path.move(to: NSPoint(x: bounds.midX, y: bounds.minY + 4))
             path.line(to: NSPoint(x: bounds.midX, y: bounds.maxY - 4))
             path.move(to: NSPoint(x: bounds.minX + 4, y: bounds.midY))

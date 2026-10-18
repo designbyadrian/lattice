@@ -2,7 +2,7 @@ import AppKit
 import AppCore
 import LayoutModel
 
-/// Native material tab strip over a tab group (PLAN P8).
+/// Native material tab strip over a tab group (PLAN P8 / P9 look pass).
 @MainActor
 public final class TabStripOverlay: NSObject {
     private var panels: [String: NSPanel] = [:]
@@ -38,6 +38,7 @@ public final class TabStripOverlay: NSObject {
             stack.orientation = .horizontal
             stack.spacing = 4
             stack.edgeInsets = NSEdgeInsets(top: 2, left: 6, bottom: 2, right: 6)
+            stack.translatesAutoresizingMaskIntoConstraints = false
             for (i, title) in group.titles.enumerated() {
                 let button = NSButton(
                     title: title.isEmpty ? "Tab \(i + 1)" : title,
@@ -49,11 +50,31 @@ public final class TabStripOverlay: NSObject {
                 button.tag = i
                 button.identifier = NSUserInterfaceItemIdentifier(key)
                 if i == group.selectedIndex {
-                    button.contentTintColor = .controlAccentColor
+                    button.contentTintColor = VisualAccessibility.accent
                 }
                 stack.addArrangedSubview(button)
             }
-            panel.contentView = stack
+
+            let host = panel.contentView ?? NSView()
+            host.subviews.forEach { $0.removeFromSuperview() }
+            if let effect = host as? NSVisualEffectView {
+                VisualAccessibility.applyMaterial(.menu, to: effect, fallbackLayer: effect.layer)
+            } else if VisualAccessibility.reduceTransparency {
+                host.wantsLayer = true
+                host.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            }
+            host.addSubview(stack)
+            NSLayoutConstraint.activate([
+                stack.leadingAnchor.constraint(equalTo: host.leadingAnchor),
+                stack.trailingAnchor.constraint(equalTo: host.trailingAnchor),
+                stack.topAnchor.constraint(equalTo: host.topAnchor),
+                stack.bottomAnchor.constraint(equalTo: host.bottomAnchor),
+            ])
+            if VisualAccessibility.increaseContrast {
+                host.wantsLayer = true
+                host.layer?.borderWidth = VisualAccessibility.outlineWidth(base: 1)
+                host.layer?.borderColor = NSColor.labelColor.cgColor
+            }
             panel.orderFrontRegardless()
         }
         for key in panels.keys where !keep.contains(key) {
@@ -85,11 +106,24 @@ public final class TabStripOverlay: NSObject {
             defer: false
         )
         panel.isOpaque = false
-        panel.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.92)
-        panel.hasShadow = true
+        panel.backgroundColor = .clear
+        panel.hasShadow = !VisualAccessibility.increaseContrast
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         panel.hidesOnDeactivate = false
+
+        let effect = NSVisualEffectView(frame: .zero)
+        effect.autoresizingMask = [.width, .height]
+        VisualAccessibility.applyMaterial(.menu, to: effect, fallbackLayer: nil)
+        if VisualAccessibility.reduceTransparency {
+            let opaque = NSView(frame: .zero)
+            opaque.wantsLayer = true
+            opaque.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            opaque.autoresizingMask = [.width, .height]
+            panel.contentView = opaque
+        } else {
+            panel.contentView = effect
+        }
         return panel
     }
 }

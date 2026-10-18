@@ -12,6 +12,9 @@ settings:
 packages:
   Lattice:
     path: .
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.6.0
 targets:
   Lattice:
     type: application
@@ -44,5 +47,7 @@ targets:
         product: LayoutEngine
       - package: Lattice
         product: Platform
+      - package: Sparkle
+        product: Sparkle
     scheme:
       testTargets: []

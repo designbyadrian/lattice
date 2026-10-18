@@ -32,7 +32,7 @@ public final class OverviewPanelController {
         }
         content.applyMaterial(
             material,
-            reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
+            reduceTransparency: VisualAccessibility.reduceTransparency
         )
         panel.contentView = content
         panel.orderFrontRegardless()
@@ -120,13 +120,19 @@ final class OverviewContentView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 
     func applyMaterial(_ material: NSVisualEffectView.Material, reduceTransparency: Bool) {
+        VisualAccessibility.applyMaterial(
+            material,
+            to: effectView,
+            fallbackLayer: layer
+        )
         if reduceTransparency {
             effectView.isHidden = true
             layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-        } else {
-            effectView.isHidden = false
-            effectView.material = material
-            layer?.backgroundColor = NSColor.clear.cgColor
+        }
+        if VisualAccessibility.increaseContrast {
+            wantsLayer = true
+            layer?.borderWidth = VisualAccessibility.outlineWidth(base: 1)
+            layer?.borderColor = NSColor.labelColor.cgColor
         }
     }
 

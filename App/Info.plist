@@ -37,5 +37,15 @@
 	<string>Lattice needs Accessibility to arrange your windows.</string>
 	<key>NSScreenCaptureUsageDescription</key>
 	<string>Lattice can show live window previews in the overview when Screen Recording is allowed.</string>
+	<!-- Sparkle 2: EdDSA public key. Replace SUPublicEDKey with the real public key from
+	     1Password / GitHub Actions secrets at release time. Never commit the private key. -->
+	<key>SUFeedURL</key>
+	<string>https://designbyadrian.github.io/lattice/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>REPLACE_WITH_SPARKLE_EDDSA_PUBLIC_KEY_FROM_SECRETS</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>
