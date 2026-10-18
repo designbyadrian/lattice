@@ -1,0 +1,147 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://designbyadrian.github.io/lattice/lattice.schema.json",
+  "title": "Lattice config",
+  "description": "Dinky-compatible TOML schema for Lattice (kebab-case keys). Lattice extensions are noted in property descriptions.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "start-at-login": { "type": "boolean", "default": true },
+    "workspaces": { "type": "integer", "minimum": 1, "default": 1 },
+    "default-tiling": { "type": "boolean", "default": true },
+    "follow-app-activation": { "type": "boolean", "default": true },
+    "float-windows-without-fullscreen": { "type": "boolean", "default": true },
+    "overview-previews": {
+      "type": "string",
+      "enum": ["auto", "live", "snapshots", "off"],
+      "default": "auto",
+      "description": "Lattice extension: overview preview capture mode."
+    },
+    "default-layout": {
+      "description": "Not supported. Lattice has a single tree layout."
+    },
+    "gaps": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inner": { "$ref": "#/$defs/gapValue" },
+        "outer": { "$ref": "#/$defs/gapValue" }
+      }
+    },
+    "modifiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "alt": { "$ref": "#/$defs/modifierSide" },
+        "ctrl": { "$ref": "#/$defs/modifierSide" },
+        "cmd": { "$ref": "#/$defs/modifierSide" },
+        "shift": { "$ref": "#/$defs/modifierSide" },
+        "drag-modifier": {
+          "type": "string",
+          "default": "alt",
+          "description": "Lattice extension: modifier chord for drag-over-apps."
+        },
+        "pinch-modifier": {
+          "type": "string",
+          "default": "ctrl-alt",
+          "description": "Lattice extension: modifier chord for pinch-over-apps."
+        }
+      }
+    },
+    "borders": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "width": { "type": "number", "default": 4 },
+        "active-color": { "type": "string", "default": "accent" },
+        "inactive-color": { "type": "string", "default": "#494d64" },
+        "order": { "type": "string", "enum": ["below", "above"], "default": "below" },
+        "exclude-apps": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "focus-follows-mouse": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean", "default": false },
+        "delay-ms": { "type": "integer", "default": 100 },
+        "accordion-edges": { "type": "boolean", "default": false },
+        "exclude-apps": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Lattice extension: bundle IDs excluded from FFM."
+        }
+      }
+    },
+    "mode": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "array", "items": { "type": "string" } }
+          ]
+        }
+      }
+    },
+    "scrolling": {
+      "description": "Not supported (Lattice has no scrolling layout)."
+    },
+    "accordion": {
+      "description": "Not supported (Lattice has no accordion layout)."
+    },
+    "workspace-to-display": { "type": "object" },
+    "animations": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "duration-ms": { "type": "integer" }
+      }
+    },
+    "drag": {
+      "type": "object",
+      "properties": {
+        "placeholders": { "type": "boolean" }
+      }
+    },
+    "hooks": { "type": "object" },
+    "workspace": { "type": "object" },
+    "display": { "type": "object" },
+    "rules": {
+      "type": "array",
+      "items": { "type": "object" }
+    },
+    "overview": {
+      "type": "object",
+      "description": "Lattice-only table (extension)."
+    },
+    "tabs": {
+      "type": "object",
+      "description": "Lattice-only table (extension)."
+    }
+  },
+  "$defs": {
+    "modifierSide": {
+      "type": "string",
+      "enum": ["both", "left", "right"],
+      "default": "both"
+    },
+    "gapValue": {
+      "oneOf": [
+        { "type": "number" },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "left": { "type": "number" },
+            "right": { "type": "number" },
+            "top": { "type": "number" },
+            "bottom": { "type": "number" }
+          }
+        }
+      ]
+    }
+  }
+}
