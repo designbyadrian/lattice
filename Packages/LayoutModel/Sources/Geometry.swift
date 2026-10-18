@@ -26,7 +26,7 @@ public struct Size: Equatable, Hashable, Codable, Sendable {
     public static let zero = Size(width: 0, height: 0)
 }
 
-/// Axis-aligned rectangle in points.
+/// Axis-aligned rectangle as origin + size (screen points).
 public struct Rect: Equatable, Hashable, Codable, Sendable {
     public var origin: Point
     public var size: Size
@@ -39,6 +39,11 @@ public struct Rect: Equatable, Hashable, Codable, Sendable {
     public init(x: Double, y: Double, width: Double, height: Double) {
         self.origin = Point(x: x, y: y)
         self.size = Size(width: width, height: height)
+    }
+
+    /// Build from `(x, y, w, h)` tuple.
+    public init(xywh: (Double, Double, Double, Double)) {
+        self.init(x: xywh.0, y: xywh.1, width: xywh.2, height: xywh.3)
     }
 
     public var x: Double {
@@ -68,7 +73,44 @@ public struct Rect: Equatable, Hashable, Codable, Sendable {
     public var midX: Double { x + width / 2 }
     public var midY: Double { y + height / 2 }
 
+    public var xywh: (Double, Double, Double, Double) { (x, y, width, height) }
+
     public static let zero = Rect(origin: .zero, size: .zero)
+
+    public func contains(point: Point) -> Bool {
+        point.x >= minX && point.x <= maxX && point.y >= minY && point.y <= maxY
+    }
+}
+
+/// World / camera / content rect stored as edges `(x0, y0, x1, y1)`.
+/// Shared edges stay bit-identical across neighbours.
+public struct EdgeRect: Equatable, Hashable, Codable, Sendable {
+    public var x0: Double
+    public var y0: Double
+    public var x1: Double
+    public var y1: Double
+
+    public init(x0: Double, y0: Double, x1: Double, y1: Double) {
+        self.x0 = x0
+        self.y0 = y0
+        self.x1 = x1
+        self.y1 = y1
+    }
+
+    public init(_ tuple: (Double, Double, Double, Double)) {
+        self.init(x0: tuple.0, y0: tuple.1, x1: tuple.2, y1: tuple.3)
+    }
+
+    public static let unit = EdgeRect(x0: 0, y0: 0, x1: 1, y1: 1)
+
+    public var width: Double { x1 - x0 }
+    public var height: Double { y1 - y0 }
+
+    public var asTuple: (Double, Double, Double, Double) { (x0, y0, x1, y1) }
+
+    public func contains(pointX x: Double, y: Double) -> Bool {
+        x0 <= x && x <= x1 && y0 <= y && y <= y1
+    }
 }
 
 /// Side of a node or screen used for docking.
@@ -78,7 +120,6 @@ public enum Edge: String, Codable, Sendable, CaseIterable, Equatable {
     case top
     case bottom
 
-    /// Axis along which a dock on this edge splits.
     public var splitAxis: Axis {
         switch self {
         case .left, .right: return .horizontal
@@ -95,8 +136,37 @@ public enum Edge: String, Codable, Sendable, CaseIterable, Equatable {
     }
 }
 
-/// Split orientation.
+/// Split orientation. `horizontal` = side by side (Python `'h'`), `vertical` = stacked (`'v'`).
 public enum Axis: String, Codable, Sendable, CaseIterable, Equatable {
     case horizontal
     case vertical
+
+    public var code: String {
+        switch self {
+        case .horizontal: return "h"
+        case .vertical: return "v"
+        }
+    }
+
+    public static func from(code: String) -> Axis {
+        code == "v" ? .vertical : .horizontal
+    }
+}
+
+public enum LayoutMath {
+    public static let tol = 1e-9
+    public static let inf = Double.infinity
+
+    public static func clamp(_ v: Double, _ lo: Double, _ hi: Double) -> Double {
+        max(lo, min(hi, v))
+    }
+
+    /// `floor(v + 0.5)` — matches Python `rnd`.
+    public static func rnd(_ v: Double) -> Double {
+        floor(v + 0.5)
+    }
+
+    public static func isValidRatio(_ r: Double) -> Bool {
+        r.isFinite && r > 0
+    }
 }

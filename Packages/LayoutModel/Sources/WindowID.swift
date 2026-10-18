@@ -47,4 +47,21 @@ public struct WindowID: Hashable, Codable, Sendable, Equatable {
         }
         return titleFingerprint == other.titleFingerprint
     }
+
+    /// Layout-tree node id for this window (stable within a session).
+    /// Layout-only / golden ids (`WindowID.named`) use the title fingerprint as the node id.
+    public var nodeID: NodeID {
+        if processID == 0, bundleID == nil, cgWindowID == nil, !titleFingerprint.isEmpty {
+            return titleFingerprint
+        }
+        if let cg = cgWindowID {
+            return "cg:\(cg)"
+        }
+        return "fp:\(processID):\(bundleID ?? ""):\(titleFingerprint)"
+    }
+
+    /// Build a WindowID whose `nodeID` equals `id` (goldens / fixtures).
+    public static func named(_ id: NodeID) -> WindowID {
+        WindowID(cgWindowID: nil, processID: 0, bundleID: nil, titleFingerprint: id)
+    }
 }

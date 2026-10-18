@@ -839,11 +839,12 @@ public final class AppCoordinator: @unchecked Sendable {
             var windowID: UInt32?
             let isLeaf: Bool
             switch node {
-            case .panel(let panel):
+            case .window(let leaf):
                 isLeaf = true
-                bundleID = panel.window.bundleID
-                title = panel.window.titleFingerprint
-                windowID = panel.window.cgWindowID
+                let wid = leaf.window
+                bundleID = wid.bundleID
+                title = wid.titleFingerprint
+                windowID = wid.cgWindowID
             case .tabs(let tabs):
                 isLeaf = true
                 if let selected = tabs.selectedWindow {
@@ -935,7 +936,9 @@ public final class AppCoordinator: @unchecked Sendable {
 
             if classification.floating {
                 let frame = ref.frame.asRect
-                ws.floating.append(FloatingWindow(id: id, frame: frame))
+                var floats = ws.floating
+                floats.append(FloatingWindow(id: id, frame: frame))
+                ws.floating = floats
             } else if let tabTarget, ws.contains(tabTarget) {
                 let (inserted, _) = ws.inserting(id, at: .screenEdge(.right))
                 ws = inserted

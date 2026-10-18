@@ -162,23 +162,30 @@ public enum WindowRematcher {
             return persisted
         }
 
-        func remapNode(_ node: Node) -> Node {
+        func claimID(_ persisted: NodeID) -> NodeID {
+            claim(WindowID.named(persisted)).nodeID
+        }
+
+        func remapLeaf(_ w: WindowLeaf) -> WindowLeaf {
+            var copy = w
+            copy.id = claimID(w.id)
+            if let d = w.donor { copy.donor = claimID(d) }
+            return copy
+        }
+
+        func remapNode(_ node: LayoutNode) -> LayoutNode {
             switch node {
-            case .desktop:
-                return .desktop
-            case .panel(let p):
-                return .panel(PanelNode(window: claim(p.window)))
-            case .tabs(let t):
-                return .tabs(TabNode(
-                    windows: t.windows.map(claim),
-                    selectedIndex: t.selectedIndex
-                ))
-            case .split(let s):
-                return .split(SplitNode(
-                    axis: s.axis,
-                    children: s.children.map(remapNode),
-                    ratios: s.ratios
-                ))
+            case .desktop(var d):
+                d.floats = d.floats.map { FloatWin(window: remapLeaf($0.window), frac: $0.frac) }
+                return .desktop(d)
+            case .window(let w):
+                return .window(remapLeaf(w))
+            case .tabs(var t):
+                t.members = t.members.map(remapLeaf)
+                return .tabs(t)
+            case .split(var s):
+                s.children = s.children.map(remapNode)
+                return .split(s)
             }
         }
 
@@ -187,10 +194,9 @@ public enum WindowRematcher {
         for (num, ws) in layout.workspaces {
             var copy = ws
             copy.root = remapNode(ws.root)
-            copy.floating = ws.floating.map { FloatingWindow(id: claim($0.id), frame: $0.frame) }
-            var states: [WindowID: WindowState] = [:]
+            var states: [NodeID: WindowState] = [:]
             for (id, state) in ws.windowStates {
-                states[claim(id)] = state
+                states[claimID(id)] = state
             }
             copy.windowStates = states
             workspaces[num] = copy

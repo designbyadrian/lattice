@@ -2,20 +2,20 @@ import Foundation
 
 /// Structural change produced by a pure workspace operation.
 public struct LayoutDiff: Equatable, Sendable {
-    public var inserted: Set<WindowID>
-    public var removed: Set<WindowID>
-    public var floated: Set<WindowID>
-    public var docked: Set<WindowID>
-    public var moved: Set<WindowID>
+    public var inserted: Set<NodeID>
+    public var removed: Set<NodeID>
+    public var floated: Set<NodeID>
+    public var docked: Set<NodeID>
+    public var moved: Set<NodeID>
     public var ratiosChanged: Bool
     public var normalized: Bool
 
     public init(
-        inserted: Set<WindowID> = [],
-        removed: Set<WindowID> = [],
-        floated: Set<WindowID> = [],
-        docked: Set<WindowID> = [],
-        moved: Set<WindowID> = [],
+        inserted: Set<NodeID> = [],
+        removed: Set<NodeID> = [],
+        floated: Set<NodeID> = [],
+        docked: Set<NodeID> = [],
+        moved: Set<NodeID> = [],
         ratiosChanged: Bool = false,
         normalized: Bool = false
     ) {
