@@ -7,7 +7,7 @@ import PlatformMac
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private var statusItem: NSStatusItem?
+    private var menuBar = MenuBarController()
     private var coordinator: AppCoordinator?
     private var windowServer: MacWindowServer?
     private var configLoader: ConfigLoader?
@@ -17,7 +17,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tabStrip: TabStripOverlay?
     private var onboarding: OnboardingController?
     private var permissionMonitor: PermissionMonitor?
+    private var inputTap: InputTapController?
+    private var gettingStarted: GettingStartedCardController?
     private var inputSafetyNet: InputSafetyNetState = .full
+    private var inputFeaturesDisabled = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let loader = ConfigLoader()
@@ -29,27 +32,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             config = .default
         }
 
-        let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
-        if let button = item.button {
-            button.image = NSImage(
-                systemSymbolName: "rectangle.split.3x1",
-                accessibilityDescription: "Lattice"
-            )
-            button.image?.isTemplate = true
+        menuBar.install { [weak self] action in
+            self?.handleMenuAction(action)
         }
-        statusItem = item
 
         let server = MacWindowServer()
         windowServer = server
         server.applyExperimentalConfig(config.experimental)
 
-        // Derive input safety net from P5a matrix outcome (pending → full until FAIL signed).
         let osMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
+        let tapController = InputTapController(config: config, safetyNet: .full)
+        let tapCreated = tapController.start()
         inputSafetyNet = InputSafetyNetState.from(
-            tapCreated: true,
+            tapCreated: tapCreated,
             inputMonitoringPrompted: false,
             osMajor: osMajor
         )
+        tapController.update(config: config, safetyNet: inputSafetyNet, mode: DefaultBindings.modeName)
+        wireInputTap(tapController)
+        inputTap = tapController
 
         let coordinator = AppCoordinator(platform: server, config: config)
         self.coordinator = coordinator
@@ -84,11 +85,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     bundles[id] = id.bundleID
                 }
                 self.bordersOverlay?.update(frames: frames, focused: focused, bundleIDs: bundles)
+                self.refreshMenu()
             }
         }
         coordinator.onTabGroupsChanged = { [weak self] groups in
             Task { @MainActor in
                 self?.tabStrip?.update(groups: groups)
+                if !groups.isEmpty {
+                    _ = self?.gettingStarted?.handle(.tabGroupFormed)
+                }
             }
         }
 
@@ -100,8 +105,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let server = self?.windowServer {
                         server.applyExperimentalConfig(cfg.experimental)
                     }
+                    self?.inputTap?.update(
+                        config: cfg,
+                        safetyNet: self?.effectiveSafetyNet() ?? .full,
+                        mode: self?.coordinator?.currentMode ?? DefaultBindings.modeName
+                    )
+                    self?.settingsController?.reloadFromDisk()
                 }
-                self?.rebuildMenu()
+                self?.refreshMenu()
             }
         }
 
@@ -113,11 +124,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
 
         let monitor = PermissionMonitor()
-        monitor.onChange = { [weak self] in self?.rebuildMenu() }
+        monitor.onChange = { [weak self] in self?.refreshMenu() }
         monitor.start()
         permissionMonitor = monitor
 
-        rebuildMenu()
+        let card = GettingStartedCardController(
+            onSkip: { [weak self] in self?.gettingStarted?.hide() },
+            onChanged: { _ in }
+        )
+        gettingStarted = card
+
+        refreshMenu()
+        if card.currentModel.isVisible {
+            card.showAnchored(under: menuBar.latticeButtonFrame())
+        }
 
         if coordinator.systemPrefsBackup.needsCrashRecoveryOffer() {
             offerPrefsRestore()
@@ -137,16 +157,168 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func application(_ application: NSApplication, open urls: [URL]) {
-        for url in urls {
-            handleURL(url)
+        for url in urls { handleURL(url) }
+    }
+
+    // MARK: - Input tap
+
+    private func wireInputTap(_ tap: InputTapController) {
+        tap.onCommands = { [weak self] commands in
+            Task { @MainActor in
+                for command in commands {
+                    await self?.coordinator?.execute(command, source: .binding)
+                    self?.noteGettingStarted(for: command)
+                }
+                self?.refreshMenu()
+            }
+        }
+        tap.onGreenButton = { [weak self] in
+            Task { @MainActor in
+                // Toggle dock/float for focused window (B15).
+                await self?.coordinator?.execute(.layoutFloating)
+                _ = self?.gettingStarted?.handle(.docked)
+                self?.refreshMenu()
+            }
+        }
+        tap.onModifierDrag = { [weak self] _ in
+            Task { @MainActor in
+                await self?.coordinator?.execute(.frameRect)
+            }
+        }
+        tap.onDragCancel = { [weak self] in
+            Task { @MainActor in
+                await self?.coordinator?.cancelDrag()
+            }
+        }
+        tap.isDragSessionActive = { [weak self] in
+            self?.coordinator?.activeDrag != nil
         }
     }
+
+    private func effectiveSafetyNet() -> InputSafetyNetState {
+        if inputFeaturesDisabled {
+            return .reduced(reason: "Input features disabled from the Lattice menu.")
+        }
+        return inputSafetyNet
+    }
+
+    private func noteGettingStarted(for command: Command) {
+        switch command {
+        case .zoom(.out, _): _ = gettingStarted?.handle(.zoomedOut)
+        case .zoom(.in, _): _ = gettingStarted?.handle(.zoomedIn)
+        case .zoom(.window, _), .zoom(.desktop, _):
+            _ = gettingStarted?.handle(.doubleClickedFocus)
+        case .dock, .dockAll:
+            _ = gettingStarted?.handle(.docked)
+        case .tabWith:
+            _ = gettingStarted?.handle(.tabGroupFormed)
+        case .resize:
+            _ = gettingStarted?.handle(.seamResized)
+        default:
+            break
+        }
+    }
+
+    // MARK: - Menu
+
+    private func refreshMenu() {
+        let front = NSWorkspace.shared.frontmostApplication?.localizedName
+        let net = effectiveSafetyNet()
+        let model = coordinator?.buildMenuModel(
+            frontmostAppName: front,
+            inputFeaturesDisabled: inputFeaturesDisabled,
+            inputSafetyNetActive: net.reducedInputFeatures,
+            inputSafetyNetNotice: net.notice
+        ) ?? MenuModel.build(from: MenuModelState(
+            inputFeaturesDisabled: inputFeaturesDisabled,
+            inputSafetyNetActive: net.reducedInputFeatures,
+            inputSafetyNetNotice: net.notice,
+            frontmostAppName: front,
+            menuBarControls: configLoader?.config.menuBarControls ?? MenuBarControl.allCases
+        ))
+        menuBar.update(model: model)
+    }
+
+    private func handleMenuAction(_ action: MenuAction) {
+        Task { @MainActor in
+            switch action {
+            case .historyBack:
+                await coordinator?.execute(.history(.back))
+            case .historyForward:
+                await coordinator?.execute(.history(.forward))
+            case .zoomDesktop:
+                await coordinator?.execute(.zoom(.desktop, toggle: false))
+            case .zoomEverything:
+                await coordinator?.execute(.zoom(.all, toggle: false))
+            case .recallView(let n):
+                await coordinator?.execute(.recallView(n))
+            case .storeView(let n):
+                await coordinator?.execute(.storeView(n))
+            case .desktopAreaToggle:
+                await coordinator?.execute(.desktopArea(.toggle))
+            case .dockAll:
+                await coordinator?.execute(.dockAll)
+                _ = gettingStarted?.handle(.docked)
+            case .unmanageAll:
+                await coordinator?.unmanageAll()
+            case .leaveAppAlone:
+                appendIgnoreForFrontmost()
+            case .workspace(let n):
+                await coordinator?.execute(.workspace(.number(n)))
+            case .spacesDetails:
+                showSpacesDetails()
+            case .toggleInputFeatures:
+                inputFeaturesDisabled.toggle()
+                inputTap?.update(
+                    config: coordinator?.config ?? .default,
+                    safetyNet: effectiveSafetyNet(),
+                    mode: coordinator?.currentMode ?? DefaultBindings.modeName
+                )
+            case .openSettings:
+                openSettings()
+            case .quit:
+                quitLattice()
+            }
+            refreshMenu()
+        }
+    }
+
+    private func appendIgnoreForFrontmost() {
+        let app = NSWorkspace.shared.frontmostApplication
+        let url = configLoader?.fileURL ?? ConfigLoader.defaultFileURL()
+        do {
+            try ConfigAppender.appendRule(
+                to: url,
+                appId: app?.bundleIdentifier,
+                appName: app?.localizedName,
+                run: ["ignore"]
+            )
+            _ = configLoader?.reload()
+            if let cfg = configLoader?.config {
+                coordinator?.reloadConfig(cfg)
+            }
+        } catch {
+            // Best-effort.
+        }
+    }
+
+    private func showSpacesDetails() {
+        let alert = NSAlert()
+        alert.messageText = SpacesSafetyNetCopy.hudMessage
+        alert.informativeText =
+            "Lattice could not use native Spaces APIs on this macOS build. Window management stays on the current Space."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    // MARK: - Settings / lifecycle
 
     private func handleURL(_ url: URL) {
         do {
             let command = try URLCommandParser.parse(url)
             Task {
                 await coordinator?.execute(command, source: .binding)
+                refreshMenu()
             }
         } catch {
             // Reject unknown params / exec-and-forget.
@@ -170,68 +342,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    private func buildMenu() -> NSMenu {
-        let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Lattice", action: nil, keyEquivalent: ""))
-        if let warning = permissionMonitor?.menuWarningTitle {
-            let item = NSMenuItem(
-                title: warning,
-                action: #selector(openAccessibilitySettings),
-                keyEquivalent: ""
-            )
-            item.target = self
-            menu.addItem(item)
-        }
-        if inputSafetyNet.reducedInputFeatures, let notice = inputSafetyNet.notice {
-            menu.addItem(NSMenuItem(title: notice, action: nil, keyEquivalent: ""))
-        }
-        if let err = configLoader?.lastError {
-            let item = NSMenuItem(
-                title: "Config error: \(err.errors.first?.description ?? "unknown")",
-                action: #selector(openSettings),
-                keyEquivalent: ""
-            )
-            item.target = self
-            menu.addItem(item)
-        }
-        if let spacesNotice = coordinator?.spacesMenuNotice {
-            menu.addItem(NSMenuItem(title: spacesNotice, action: nil, keyEquivalent: ""))
-        }
-        menu.addItem(.separator())
-        menu.addItem(menuItem("Settings…", #selector(openSettings), ","))
-        menu.addItem(menuItem("About Lattice…", #selector(showAbout)))
-        menu.addItem(menuItem("Dock all windows", #selector(dockAll)))
-        menu.addItem(menuItem("Float every window", #selector(unmanageAll)))
-        menu.addItem(.separator())
-        menu.addItem(menuItem("Override macOS tiling…", #selector(overrideTiling)))
-        menu.addItem(menuItem("Restore macOS settings & quit", #selector(restorePrefsAndQuit)))
-        menu.addItem(.separator())
-        menu.addItem(menuItem("Quit Lattice", #selector(quitLattice), "q"))
-        return menu
-    }
-
-    private func rebuildMenu() {
-        statusItem?.menu = buildMenu()
-    }
-
-    private func menuItem(_ title: String, _ action: Selector, _ key: String = "") -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
-        item.target = self
-        return item
-    }
-
-    @objc private func openAccessibilitySettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")
-        if let url { NSWorkspace.shared.open(url) }
-    }
-
     @objc private func openSettings() {
         let url = configLoader?.fileURL ?? ConfigLoader.defaultFileURL()
         let controller = SettingsWindowController(
             configURL: url,
-            onAppendRule: { [weak self] in
-                self?.appendRuleForFrontmost()
-            },
+            systemPrefs: coordinator?.systemPrefsBackup,
             onReload: { [weak self] in
                 _ = self?.configLoader?.reload()
                 if let cfg = self?.configLoader?.config {
@@ -239,75 +354,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let server = self?.windowServer {
                         server.applyExperimentalConfig(cfg.experimental)
                     }
+                    self?.inputTap?.update(
+                        config: cfg,
+                        safetyNet: self?.effectiveSafetyNet() ?? .full,
+                        mode: self?.coordinator?.currentMode ?? DefaultBindings.modeName
+                    )
                 }
+                self?.refreshMenu()
+            },
+            onRestartGettingStarted: { [weak self] in
+                self?.gettingStarted?.restart()
+                self?.gettingStarted?.showAnchored(under: self?.menuBar.latticeButtonFrame())
+            },
+            onOverridePrefs: { [weak self] in
+                try? self?.coordinator?.systemPrefsBackup.applyOverrides(disableEdgeTiling: true)
+            },
+            onRestorePrefs: { [weak self] in
+                try? self?.coordinator?.systemPrefsBackup.restore()
             }
         )
         settingsController = controller
         controller.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
-    }
-
-    @objc private func showAbout() {
-        let version =
-            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
-            ?? "0.1.0"
-        let alert = NSAlert()
-        alert.messageText = "Lattice \(version)"
-        alert.informativeText = """
-            Config format compatible with Dinky by Mikkel Malmberg (MIT).
-
-            Optional [experimental] flags in lattice.toml (ax-window-id, multitouch) are off by default. If a private symbol is missing or a call fails, Lattice auto-disables that flag and keeps the public path.
-            """
-        alert.alertStyle = .informational
-        alert.addButton(withTitle: "OK")
-        alert.runModal()
-    }
-
-    private func appendRuleForFrontmost() {
-        let app = NSWorkspace.shared.frontmostApplication
-        let url = configLoader?.fileURL ?? ConfigLoader.defaultFileURL()
-        do {
-            try ConfigAppender.appendRule(
-                to: url,
-                appId: app?.bundleIdentifier,
-                appName: app?.localizedName
-            )
-            _ = configLoader?.reload()
-            if let cfg = configLoader?.config {
-                coordinator?.reloadConfig(cfg)
-            }
-        } catch {
-            // Best-effort.
-        }
-    }
-
-    @objc private func dockAll() {
-        Task { await coordinator?.execute(.dockAll) }
-    }
-
-    @objc private func unmanageAll() {
-        Task { await coordinator?.unmanageAll() }
-    }
-
-    @objc private func overrideTiling() {
-        let alert = NSAlert()
-        alert.messageText = "Disable macOS edge tiling?"
-        alert.informativeText =
-            "Lattice can turn off native edge tiling so it does not fight managed layouts. Originals are backed up and can be restored from the menu."
-        alert.addButton(withTitle: "Disable & Backup")
-        alert.addButton(withTitle: "Cancel")
-        guard alert.runModal() == .alertFirstButtonReturn else { return }
-        try? coordinator?.systemPrefsBackup.applyOverrides(disableEdgeTiling: true)
-    }
-
-    @objc private func restorePrefsAndQuit() {
-        try? coordinator?.systemPrefsBackup.restore()
-        Task { @MainActor in
-            await coordinator?.prepareSafeQuit()
-            coordinator?.stop()
-            socketServer?.stop()
-            NSApp.terminate(nil)
-        }
     }
 
     private func offerPrefsRestore() {
@@ -326,16 +394,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task { @MainActor in
             await coordinator?.prepareSafeQuit()
             coordinator?.stop()
+            inputTap?.stop()
             socketServer?.stop()
             bordersOverlay?.hideAll()
             tabStrip?.hideAll()
             permissionMonitor?.stop()
+            gettingStarted?.hide()
             NSApp.terminate(nil)
         }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         try? coordinator?.systemPrefsBackup.markCleanShutdown()
+        inputTap?.stop()
         socketServer?.stop()
         coordinator?.stop()
         permissionMonitor?.stop()

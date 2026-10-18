@@ -8,14 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		0CA308B4104A998762DD120D /* Platform in Frameworks */ = {isa = PBXBuildFile; productRef = C4B95F547B03C23D4DBA1DEB /* Platform */; };
+		1B47498FC7B62A995F261610 /* MenuBarController.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB220EA5253DB6BE19891CAB /* MenuBarController.swift */; };
 		367D858217C31C90366A9671 /* SettingsWindowController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 419296F51E94DC021866A8D5 /* SettingsWindowController.swift */; };
 		3AC8FA29EFF153861162921E /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8D8C3AB07E2927BF83A5D80 /* UpdaterController.swift */; };
 		3F4B4A956DE3B276328CDDDB /* main.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54527EDD029C89330EAA82BC /* main.swift */; };
 		4046C402CA3AAC8E945F0C2E /* AppCore in Frameworks */ = {isa = PBXBuildFile; productRef = 4283291640CADD913730C4E5 /* AppCore */; };
 		620BD72ED549B92059F97AE4 /* LayoutEngine in Frameworks */ = {isa = PBXBuildFile; productRef = C6E6F73D6D922EE3203F8536 /* LayoutEngine */; };
+		A3513F29356A13DB9603D0A2 /* ConfigFileEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7B4E6E7FAE724082EE6F92E /* ConfigFileEditor.swift */; };
+		A7291D9026BE3A5CE806928B /* GettingStartedCardController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0FFE077886BCEB690D1D50A4 /* GettingStartedCardController.swift */; };
 		ABB28A64515D31747E672FE3 /* LayoutModel in Frameworks */ = {isa = PBXBuildFile; productRef = 44512FE7D327D88F0F930953 /* LayoutModel */; };
 		B3CB5D3B858763E69D1CFD7A /* Config in Frameworks */ = {isa = PBXBuildFile; productRef = 94F8F7FC9AC5CF59928000F7 /* Config */; };
 		B4F73914F1DD845652BDF939 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */; };
+		B5ACCCDDAD0C17A63AE2A001 /* ShortcutRecorderView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FDEAD0F376133E2F94F4B5CC /* ShortcutRecorderView.swift */; };
 		B7E7E21CE6CC0E8909D7C89F /* PlatformMac in Frameworks */ = {isa = PBXBuildFile; productRef = 70D708262151BAE9D0974CDC /* PlatformMac */; };
 		CD7959F61F9D5AE052D7D14D /* PermissionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A8A579D7D03093F2D5FF0A /* PermissionMonitor.swift */; };
 		DF019927FFD5C23C38340BFB /* OnboardingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5879B3009ADFCB519D9866 /* OnboardingController.swift */; };
@@ -23,12 +27,16 @@
 
 /* Begin PBXFileReference section */
 		0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		0FFE077886BCEB690D1D50A4 /* GettingStartedCardController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GettingStartedCardController.swift; sourceTree = "<group>"; };
 		1158EE73B3C9DCD96714F9F8 /* lattice */ = {isa = PBXFileReference; lastKnownFileType = folder; name = lattice; path = .; sourceTree = SOURCE_ROOT; };
 		419296F51E94DC021866A8D5 /* SettingsWindowController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsWindowController.swift; sourceTree = "<group>"; };
 		54527EDD029C89330EAA82BC /* main.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = main.swift; sourceTree = "<group>"; };
 		79A8A579D7D03093F2D5FF0A /* PermissionMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PermissionMonitor.swift; sourceTree = "<group>"; };
 		7F5879B3009ADFCB519D9866 /* OnboardingController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingController.swift; sourceTree = "<group>"; };
+		B7B4E6E7FAE724082EE6F92E /* ConfigFileEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfigFileEditor.swift; sourceTree = "<group>"; };
 		B8D8C3AB07E2927BF83A5D80 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
+		DB220EA5253DB6BE19891CAB /* MenuBarController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarController.swift; sourceTree = "<group>"; };
+		FDEAD0F376133E2F94F4B5CC /* ShortcutRecorderView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutRecorderView.swift; sourceTree = "<group>"; };
 		FF3B53D4F9DD5D7C4B93487D /* Lattice.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lattice.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -62,10 +70,14 @@
 			isa = PBXGroup;
 			children = (
 				0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */,
+				B7B4E6E7FAE724082EE6F92E /* ConfigFileEditor.swift */,
+				0FFE077886BCEB690D1D50A4 /* GettingStartedCardController.swift */,
 				54527EDD029C89330EAA82BC /* main.swift */,
+				DB220EA5253DB6BE19891CAB /* MenuBarController.swift */,
 				7F5879B3009ADFCB519D9866 /* OnboardingController.swift */,
 				79A8A579D7D03093F2D5FF0A /* PermissionMonitor.swift */,
 				419296F51E94DC021866A8D5 /* SettingsWindowController.swift */,
+				FDEAD0F376133E2F94F4B5CC /* ShortcutRecorderView.swift */,
 				B8D8C3AB07E2927BF83A5D80 /* UpdaterController.swift */,
 			);
 			path = Sources;
@@ -184,9 +196,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B4F73914F1DD845652BDF939 /* AppDelegate.swift in Sources */,
+				A3513F29356A13DB9603D0A2 /* ConfigFileEditor.swift in Sources */,
+				A7291D9026BE3A5CE806928B /* GettingStartedCardController.swift in Sources */,
+				1B47498FC7B62A995F261610 /* MenuBarController.swift in Sources */,
 				DF019927FFD5C23C38340BFB /* OnboardingController.swift in Sources */,
 				CD7959F61F9D5AE052D7D14D /* PermissionMonitor.swift in Sources */,
 				367D858217C31C90366A9671 /* SettingsWindowController.swift in Sources */,
+				B5ACCCDDAD0C17A63AE2A001 /* ShortcutRecorderView.swift in Sources */,
 				3AC8FA29EFF153861162921E /* UpdaterController.swift in Sources */,
 				3F4B4A956DE3B276328CDDDB /* main.swift in Sources */,
 			);

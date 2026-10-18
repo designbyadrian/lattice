@@ -89,7 +89,7 @@ public final class AppCoordinator: @unchecked Sendable {
     /// Callback after tab group selection changes (tab strip).
     public var onTabGroupsChanged: (([TabGroupSnapshot]) -> Void)?
 
-    private let queue = DispatchQueue(label: "com.designbyadrian.lattice.app-coordinator")
+    let queue = DispatchQueue(label: "com.designbyadrian.lattice.app-coordinator")
     private var started = false
     private var spacesReconcileDebounce: DispatchWorkItem?
     private var lastSpaceBindingBeforeFailedAction: WorkspaceSpaceBinding?
