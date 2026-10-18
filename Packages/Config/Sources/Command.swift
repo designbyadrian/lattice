@@ -1,7 +1,7 @@
 import Foundation
 import LayoutModel
 
-/// Direction used by focus / move / dock / tab-with (vim + cardinal names).
+/// Direction used by focus / move / dock / tab-with / pan (vim + cardinal names).
 public enum CommandDirection: String, Sendable, Equatable, CaseIterable {
     case left
     case down
@@ -56,6 +56,7 @@ public enum ZoomTarget: String, Sendable, Equatable {
     case out
     case all
     case window
+    case desktop
 }
 
 public enum TabTarget: Sendable, Equatable {
@@ -69,6 +70,18 @@ public enum TabTarget: Sendable, Equatable {
 public enum HistoryDirection: String, Sendable, Equatable {
     case back
     case forward
+}
+
+public enum DesktopAreaAction: String, Sendable, Equatable {
+    case show
+    case hide
+    case toggle
+}
+
+public enum SplitDirectionAction: String, Sendable, Equatable {
+    case toggle
+    case horizontal
+    case vertical
 }
 
 /// One Lattice / Dinky command. Shared by bindings, rules, hooks, URL scheme, CLI.
@@ -96,16 +109,20 @@ public enum Command: Sendable, Equatable {
     case layoutCycle([String])
     case split(Axis)
     case dock(CommandDirection, screen: Bool)
+    case dockAll
     case tabWith(TabTarget)
     case untab
     case tab(TabTarget)
-    case zoom(ZoomTarget)
+    case zoom(ZoomTarget, toggle: Bool)
     case frameRect
     case history(HistoryDirection)
-    case view(Int)
-    case saveView(Int)
-    case overview
-    case floatAll
+    case recallView(Int)
+    case storeView(Int)
+    case pan(CommandDirection)
+    case desktopArea(DesktopAreaAction)
+    case splitNew(appId: String)
+    case splitDirection(SplitDirectionAction)
+    case unmanageAll
     case ignore
     case minSize(width: Double, height: Double)
 }

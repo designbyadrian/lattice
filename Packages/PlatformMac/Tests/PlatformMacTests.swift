@@ -135,27 +135,27 @@ import Config
     #expect(c.classify(event) == .pass)
 }
 
-@Test func boundFocusIsCommand() {
+@Test func boundZoomAllIsCommand() {
     let c = EventClassifier()
     let event = ClassifiableEvent(
         kind: .keyDown,
-        key: "h",
-        flags: ClassifierFlags(option: true, device: .leftOption)
+        key: "space",
+        flags: ClassifierFlags(control: true, option: true, device: [.leftControl, .leftOption])
     )
     let result = c.classify(event)
     guard case .command(let cmds) = result else {
         Issue.record("expected command, got \(result)")
         return
     }
-    #expect(cmds == [.focus(.left)])
+    #expect(cmds == [.zoom(.all, toggle: false)])
 }
 
 @Test func boundKeyUpIsSwallowed() {
     let c = EventClassifier()
     let event = ClassifiableEvent(
         kind: .keyUp,
-        key: "h",
-        flags: ClassifierFlags(option: true)
+        key: "space",
+        flags: ClassifierFlags(control: true, option: true)
     )
     #expect(c.classify(event) == .swallow)
 }
@@ -167,15 +167,15 @@ import Config
 
     let rightOnly = ClassifiableEvent(
         kind: .keyDown,
-        key: "h",
-        flags: ClassifierFlags(option: true, device: .rightOption)
+        key: "space",
+        flags: ClassifierFlags(control: true, option: true, device: [.leftControl, .rightOption])
     )
     #expect(c.classify(rightOnly) == .pass)
 
     let left = ClassifiableEvent(
         kind: .keyDown,
-        key: "h",
-        flags: ClassifierFlags(option: true, device: .leftOption)
+        key: "space",
+        flags: ClassifierFlags(control: true, option: true, device: [.leftControl, .leftOption])
     )
     guard case .command = c.classify(left) else {
         Issue.record("left alt should match")
@@ -192,8 +192,8 @@ import Config
     )
     let rightOnly = ClassifiableEvent(
         kind: .keyDown,
-        key: "h",
-        flags: ClassifierFlags(option: true, device: .rightOption)
+        key: "space",
+        flags: ClassifierFlags(control: true, option: true, device: [.leftControl, .rightOption])
     )
     guard case .command = c.classify(rightOnly) else {
         Issue.record("safety net should ignore side")
@@ -201,14 +201,21 @@ import Config
     }
 }
 
-@Test func modifierDragSwallowsOverAppWindow() {
+@Test func frameModifierDragSwallows() {
     let c = EventClassifier()
     let down = ClassifiableEvent(
         kind: .leftMouseDown,
-        flags: ClassifierFlags(option: true),
+        flags: ClassifierFlags(shift: true, command: true),
         overAppWindow: true
     )
     #expect(c.classify(down) == .swallow)
+
+    let overDesktop = ClassifiableEvent(
+        kind: .leftMouseDown,
+        flags: ClassifierFlags(shift: true, command: true),
+        overAppWindow: false
+    )
+    #expect(c.classify(overDesktop) == .swallow)
 
     let noMod = ClassifiableEvent(
         kind: .leftMouseDown,
@@ -216,20 +223,13 @@ import Config
         overAppWindow: true
     )
     #expect(c.classify(noMod) == .pass)
-
-    let notOver = ClassifiableEvent(
-        kind: .leftMouseDown,
-        flags: ClassifierFlags(option: true),
-        overAppWindow: false
-    )
-    #expect(c.classify(notOver) == .pass)
 }
 
-@Test func safetyNetPassesModifierDrag() {
+@Test func safetyNetPassesFrameModifierDrag() {
     let c = EventClassifier(safetyNet: .reduced(reason: "test"))
     let down = ClassifiableEvent(
         kind: .leftMouseDown,
-        flags: ClassifierFlags(option: true),
+        flags: ClassifierFlags(shift: true, command: true),
         overAppWindow: true
     )
     #expect(c.classify(down) == .pass)
@@ -239,7 +239,7 @@ import Config
     let c = EventClassifier()
     let pinch = ClassifiableEvent(
         kind: .magnify,
-        flags: ClassifierFlags(control: true, option: true),
+        flags: ClassifierFlags(option: true),
         overAppWindow: true
     )
     #expect(c.classify(pinch) == .swallow)
@@ -252,12 +252,12 @@ import Config
     #expect(c.classify(noMod) == .pass)
 }
 
-@Test func workspaceAndDockBindings() {
+@Test func workspaceAndViewBindings() {
     let c = EventClassifier()
     let ws = ClassifiableEvent(
         kind: .keyDown,
         key: "3",
-        flags: ClassifierFlags(option: true)
+        flags: ClassifierFlags(control: true, option: true, command: true)
     )
     guard case .command(let wsCmds) = c.classify(ws) else {
         Issue.record("workspace binding missing")
@@ -265,39 +265,39 @@ import Config
     }
     #expect(wsCmds == [.workspace(.number(3))])
 
-    let moveFollow = ClassifiableEvent(
+    let move = ClassifiableEvent(
         kind: .keyDown,
         key: "3",
-        flags: ClassifierFlags(option: true, shift: true)
+        flags: ClassifierFlags(control: true, option: true, shift: true, command: true)
     )
-    guard case .command(let mv) = c.classify(moveFollow) else {
+    guard case .command(let mv) = c.classify(move) else {
         Issue.record("move-to-workspace binding missing")
         return
     }
-    #expect(mv == [.moveWindowToWorkspace(.number(3), follow: true)])
+    #expect(mv == [.moveWindowToWorkspace(.number(3), follow: false)])
 
-    let dock = ClassifiableEvent(
+    let recall = ClassifiableEvent(
         kind: .keyDown,
-        key: "l",
+        key: "3",
         flags: ClassifierFlags(control: true, option: true)
     )
-    guard case .command(let dockCmds) = c.classify(dock) else {
-        Issue.record("dock binding missing")
+    guard case .command(let recallCmds) = c.classify(recall) else {
+        Issue.record("recall-view binding missing")
         return
     }
-    #expect(dockCmds == [.dock(.right, screen: false)])
+    #expect(recallCmds == [.recallView(3)])
 }
 
-@Test func layoutToggleBinding() {
+@Test func zoomAllBinding() {
     let c = EventClassifier()
     let event = ClassifiableEvent(
         kind: .keyDown,
         key: "space",
-        flags: ClassifierFlags(option: true, shift: true)
+        flags: ClassifierFlags(control: true, option: true)
     )
     guard case .command(let cmds) = c.classify(event) else {
-        Issue.record("layout toggle missing")
+        Issue.record("zoom all binding missing")
         return
     }
-    #expect(cmds == [.layoutCycle(["floating", "tiling"])])
+    #expect(cmds == [.zoom(.all, toggle: false)])
 }

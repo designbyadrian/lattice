@@ -29,7 +29,12 @@ import Config
         frame: CGRectCodable(x: 500, y: 50, width: 400, height: 300)
     )
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    // Explicit tiling-on for this insert/apply regression (product default is false).
+    let coordinator = AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: true),
+        layoutStore: .inMemory()
+    )
     await coordinator.start()
 
     #expect(platform.setFrameCallCount >= 2)
@@ -133,9 +138,13 @@ import Config
     let w1 = WindowRef(id: 1, pid: 1, title: "A", frame: CGRectCodable(x: 0, y: 0, width: 100, height: 100))
     let w2 = WindowRef(id: 2, pid: 2, title: "B", frame: CGRectCodable(x: 100, y: 0, width: 100, height: 100))
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: true),
+        layoutStore: .inMemory()
+    )
     await coordinator.start()
-    await coordinator.floatAll()
+    await coordinator.unmanageAll()
 
     let ws = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }
     #expect(ws?.floating.count == 2)
@@ -151,7 +160,11 @@ import Config
         frame: CGRectCodable(x: -5000, y: -5000, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [win])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: true),
+        layoutStore: .inMemory()
+    )
     await coordinator.start()
     // Force lastFrames off-screen.
     // prepareSafeQuit uses lastFrames from solve (on-screen) — also call with applied frames.

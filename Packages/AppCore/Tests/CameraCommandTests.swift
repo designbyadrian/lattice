@@ -5,6 +5,14 @@ import LayoutModel
 import Platform
 import Config
 
+private func tilingCoordinator(platform: FakePlatform) -> AppCoordinator {
+    AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: true),
+        layoutStore: .inMemory()
+    )
+}
+
 @Test func zoomAllUpdatesCameraAndAppliesFrames() async throws {
     let w1 = WindowRef(
         id: 1, pid: 10, bundleID: "a.one", title: "One",
@@ -15,15 +23,15 @@ import Config
         frame: CGRectCodable(x: 300, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = tilingCoordinator(platform: platform)
     await coordinator.start()
     platform.resetAppliedFrames()
 
-    await coordinator.execute(.zoom(.window))
+    await coordinator.execute(.zoom(.window, toggle: false))
     let ws = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }
     #expect(ws?.camera.zoom == 1)
 
-    await coordinator.execute(.zoom(.all))
+    await coordinator.execute(.zoom(.all, toggle: false))
     let ws2 = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }
     #expect(ws2?.camera == .showAll)
     #expect(platform.setFrameCallCount >= 1)
@@ -36,14 +44,14 @@ import Config
         frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = tilingCoordinator(platform: platform)
     await coordinator.start()
 
-    await coordinator.execute(.zoom(.window))
+    await coordinator.execute(.zoom(.window, toggle: false))
     let zoomed = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }?.camera
     #expect(zoomed?.zoom == 1)
 
-    await coordinator.execute(.zoom(.all))
+    await coordinator.execute(.zoom(.all, toggle: false))
     await coordinator.execute(.history(.back))
     let afterBack = coordinator.displayLayouts.values.first.flatMap { $0.workspaces[1] }?.camera
     #expect(afterBack?.zoom == 1)
@@ -54,35 +62,16 @@ import Config
     coordinator.stop()
 }
 
-@Test func overviewPresentsTiles() async throws {
-    let w1 = WindowRef(
-        id: 4, pid: 13, bundleID: "a.four", title: "Four",
-        frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
-    )
-    let platform = FakePlatform(windows: [w1])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
-    await coordinator.start()
-
-    await coordinator.execute(.overview)
-    #expect(coordinator.isOverviewVisible)
-    #expect(platform.fakeOverview.isOverviewVisible)
-    #expect(!platform.fakeOverview.lastTiles.isEmpty)
-
-    await coordinator.execute(.overview)
-    #expect(!coordinator.isOverviewVisible)
-    coordinator.stop()
-}
-
 @Test func reduceMotionJumpsWithoutLongAnimation() async throws {
     let w1 = WindowRef(
         id: 5, pid: 14, bundleID: "a.five", title: "Five",
         frame: CGRectCodable(x: 0, y: 0, width: 200, height: 200)
     )
     let platform = FakePlatform(windows: [w1], accessibilityReduceMotion: true)
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = tilingCoordinator(platform: platform)
     await coordinator.start()
     platform.resetAppliedFrames()
-    await coordinator.execute(.zoom(.all))
+    await coordinator.execute(.zoom(.all, toggle: false))
     #expect(platform.setFrameCallCount >= 1)
     #expect(!platform.frameAnimator.isAnimating)
     coordinator.stop()

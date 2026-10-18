@@ -39,9 +39,8 @@ public struct EventClassifier: Sendable {
         case .leftMouseUp:
             // Swallow mouse-up only if we would have swallowed the drag (pair with modifier).
             if !safetyNet.disablesModifierDrag,
-               event.overAppWindow,
-               event.flags.containsAtLeast(config.modifiers.dragModifier),
-               config.modifiers.dragModifier.isEmpty == false {
+               event.flags.containsAtLeast(config.modifiers.frameModifier),
+               config.modifiers.frameModifier.isEmpty == false {
                 return .swallow
             }
             return .pass
@@ -140,9 +139,9 @@ public struct EventClassifier: Sendable {
 
     private func classifyModifierDrag(_ event: ClassifiableEvent) -> EventClassification {
         if safetyNet.disablesModifierDrag { return .pass }
-        let required = config.modifiers.dragModifier
+        let required = config.modifiers.frameModifier
         guard !required.isEmpty else { return .pass }
-        guard event.overAppWindow else { return .pass }
+        // Frame-rect swallows with the modifier held over apps or desktop (ADDENDUM-2 B4).
         guard event.flags.containsAtLeast(required) else { return .pass }
         return .swallow
     }

@@ -1,7 +1,7 @@
 import Foundation
 import LayoutModel
 
-/// Parses Dinky command-string grammar plus Lattice extensions (PLAN §7a).
+/// Parses Dinky command-string grammar plus Lattice extensions (PLAN §7a / ADDENDUM-2 §R).
 public enum CommandParser {
     /// Parse a single command string.
     public static func parse(_ raw: String) throws -> Command {
@@ -73,6 +73,8 @@ public enum CommandParser {
         case "dock":
             let dir = try parseDirection(positional, verb: verb)
             return .dock(dir, screen: flags.contains("--screen"))
+        case "dock-all":
+            return .dockAll
         case "tab-with":
             return .tabWith(try parseTabWithTarget(positional))
         case "untab":
@@ -80,10 +82,10 @@ public enum CommandParser {
         case "tab":
             return .tab(try parseTabNav(positional))
         case "zoom":
-            return .zoom(try parseZoom(positional))
+            return .zoom(try parseZoom(positional), toggle: flags.contains("--toggle"))
         case "fullscreen":
             // Dinky alias of zoom window.
-            return .zoom(.window)
+            return .zoom(.window, toggle: false)
         case "frame-rect":
             return .frameRect
         case "history":
@@ -92,14 +94,31 @@ public enum CommandParser {
                 throw ConfigError("history requires back|forward")
             }
             return .history(dir)
-        case "view":
-            return .view(try parseViewIndex(positional, verb: verb))
-        case "save-view":
-            return .saveView(try parseViewIndex(positional, verb: verb))
-        case "overview":
-            return .overview
-        case "float-all":
-            return .floatAll
+        case "recall-view":
+            return .recallView(try parseViewIndex(positional, verb: verb))
+        case "store-view":
+            return .storeView(try parseViewIndex(positional, verb: verb))
+        case "pan":
+            return .pan(try parseDirection(positional, verb: verb))
+        case "desktop-area":
+            guard let raw = positional.first?.lowercased(),
+                  let action = DesktopAreaAction(rawValue: raw) else {
+                throw ConfigError("desktop-area requires show|hide|toggle")
+            }
+            return .desktopArea(action)
+        case "split-new":
+            guard let appId = positional.first, !appId.isEmpty else {
+                throw ConfigError("split-new requires an app id")
+            }
+            return .splitNew(appId: appId)
+        case "split-direction":
+            guard let raw = positional.first?.lowercased(),
+                  let action = SplitDirectionAction(rawValue: raw) else {
+                throw ConfigError("split-direction requires toggle|horizontal|vertical")
+            }
+            return .splitDirection(action)
+        case "unmanage-all":
+            return .unmanageAll
         case "ignore":
             return .ignore
         case "min-size":
@@ -275,10 +294,10 @@ public enum CommandParser {
 
     private static func parseZoom(_ positional: [String]) throws -> ZoomTarget {
         guard let first = positional.first?.lowercased() else {
-            throw ConfigError("zoom requires in|out|all|window")
+            throw ConfigError("zoom requires in|out|all|window|desktop")
         }
         guard let target = ZoomTarget(rawValue: first) else {
-            throw ConfigError("zoom requires in|out|all|window")
+            throw ConfigError("zoom requires in|out|all|window|desktop")
         }
         return target
     }

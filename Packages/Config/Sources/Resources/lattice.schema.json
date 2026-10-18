@@ -8,14 +8,17 @@
   "properties": {
     "start-at-login": { "type": "boolean", "default": true },
     "workspaces": { "type": "integer", "minimum": 1, "default": 1 },
-    "default-tiling": { "type": "boolean", "default": true },
+    "default-tiling": { "type": "boolean", "default": false },
     "follow-app-activation": { "type": "boolean", "default": true },
     "float-windows-without-fullscreen": { "type": "boolean", "default": true },
-    "overview-previews": {
-      "type": "string",
-      "enum": ["auto", "live", "snapshots", "off"],
-      "default": "auto",
-      "description": "Lattice extension: overview preview capture mode."
+    "menu-bar-controls": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": ["back", "forward", "views", "desktop", "everything"]
+      },
+      "default": ["back", "forward", "views", "desktop", "everything"],
+      "description": "Lattice extension: which status controls appear in the menu bar (order preserved)."
     },
     "default-layout": {
       "description": "Not supported. Lattice has a single tree layout."
@@ -36,15 +39,30 @@
         "ctrl": { "$ref": "#/$defs/modifierSide" },
         "cmd": { "$ref": "#/$defs/modifierSide" },
         "shift": { "$ref": "#/$defs/modifierSide" },
-        "drag-modifier": {
+        "frame-modifier": {
           "type": "string",
-          "default": "alt",
-          "description": "Lattice extension: modifier chord for drag-over-apps."
+          "default": "cmd-shift",
+          "description": "Lattice extension: modifier chord for frame-rect drag."
         },
         "pinch-modifier": {
           "type": "string",
-          "default": "ctrl-alt",
+          "default": "alt",
           "description": "Lattice extension: modifier chord for pinch-over-apps."
+        }
+      }
+    },
+    "mouse": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lattice extension: double-click gestures.",
+      "properties": {
+        "double-click-desktop": {
+          "type": "string",
+          "default": "zoom desktop --toggle"
+        },
+        "double-click-title": {
+          "type": "string",
+          "default": "zoom window --toggle"
         }
       }
     },
@@ -95,9 +113,10 @@
     "workspace-to-display": { "type": "object" },
     "animations": {
       "type": "object",
+      "additionalProperties": false,
       "properties": {
-        "enabled": { "type": "boolean" },
-        "duration-ms": { "type": "integer" }
+        "enabled": { "type": "boolean", "default": true },
+        "duration-ms": { "type": "integer", "default": 450 }
       }
     },
     "drag": {
@@ -113,13 +132,74 @@
       "type": "array",
       "items": { "type": "object" }
     },
-    "overview": {
+    "layout": {
       "type": "object",
-      "description": "Lattice-only table (extension)."
+      "additionalProperties": false,
+      "description": "Lattice extension: layout geometry (ADDENDUM-3 §9).",
+      "properties": {
+        "insert-takes-from": { "type": "string", "enum": ["target", "row"], "default": "target" },
+        "insert-ratio": { "type": "number", "minimum": 0.15, "maximum": 0.85, "default": 0.5 },
+        "close-gives-to": { "type": "string", "enum": ["donor", "row", "neighbour"], "default": "donor" },
+        "live-visible-fraction": { "type": "number", "minimum": 0.5, "maximum": 1, "default": 0.99 },
+        "min-ratio": { "type": "number", "minimum": 0.005, "maximum": 0.2, "default": 0.02 },
+        "shrink-past-app-minimum": { "type": "boolean", "default": true },
+        "tile-floor": { "$ref": "#/$defs/sizePair", "default": [160, 100] },
+        "fallback-min-size": { "$ref": "#/$defs/sizePair", "default": [240, 160] },
+        "drop-edge-fraction": { "type": "number", "minimum": 0.1, "maximum": 0.45, "default": 0.25 },
+        "screen-edge-band": { "type": "integer", "default": 8 }
+      }
+    },
+    "zoom": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lattice extension: zoom / cover thresholds (ADDENDUM-3 §9).",
+      "properties": {
+        "icon-tile-slack": { "type": "integer", "default": 2 },
+        "group-tile-below": { "type": "integer", "default": 100 },
+        "group-tile-above": { "type": "integer", "default": 124 },
+        "still-timeout-ms": { "type": "integer", "default": 600 }
+      }
     },
     "tabs": {
       "type": "object",
-      "description": "Lattice-only table (extension)."
+      "additionalProperties": false,
+      "description": "Lattice extension: tab bar geometry (ADDENDUM-3 §9).",
+      "properties": {
+        "tab-bar-height": { "type": "integer", "default": 28 },
+        "tab-bar-ref-size": { "$ref": "#/$defs/sizePair", "default": [400, 280] },
+        "tab-bar-min-scale": { "type": "number", "default": 0.35 },
+        "tab-bar-hide-below": { "type": "integer", "default": 12 }
+      }
+    },
+    "desktop-area": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lattice extension: desktop region geometry (ADDENDUM-3 §9).",
+      "properties": {
+        "min-size": { "$ref": "#/$defs/sizePair", "default": [240, 160] },
+        "reshow-ratio": { "type": "number", "default": 0.33 },
+        "drop-edge-fraction": { "type": "number", "default": 0.18 },
+        "drop-edge-max": { "type": "integer", "default": 60 },
+        "float-max-fraction": { "type": "number", "minimum": 0.3, "maximum": 1, "default": 0.7 },
+        "float-margin": { "type": "integer", "default": 12 },
+        "float-cascade": { "type": "integer", "default": 24 },
+        "sole-float-fills": { "type": "boolean", "default": false },
+        "float-nudge-in": { "type": "boolean", "default": true }
+      }
+    },
+    "window-sizing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lattice extension: AX size probing (ADDENDUM-3 §9).",
+      "properties": {
+        "ax-retries": { "type": "integer", "minimum": 1, "maximum": 5, "default": 3 },
+        "ax-readback-delay-ms": { "type": "integer", "default": 120 },
+        "ax-retry-interval-ms": { "type": "integer", "default": 200 },
+        "ax-retry-window-ms": { "type": "integer", "default": 2000 },
+        "ax-size-tolerance": { "type": "integer", "default": 16 },
+        "ax-max-resolves": { "type": "integer", "minimum": 0, "maximum": 5, "default": 3 },
+        "learn-minimums": { "type": "boolean", "default": true }
+      }
     },
     "experimental": {
       "type": "object",
@@ -145,6 +225,12 @@
       "enum": ["both", "left", "right"],
       "default": "both"
     },
+    "sizePair": {
+      "type": "array",
+      "items": { "type": "number" },
+      "minItems": 2,
+      "maxItems": 2
+    },
     "gapValue": {
       "oneOf": [
         { "type": "number" },
@@ -156,6 +242,14 @@
             "right": { "type": "number" },
             "top": { "type": "number" },
             "bottom": { "type": "number" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "horizontal": { "type": "number" },
+            "vertical": { "type": "number" }
           }
         }
       ]

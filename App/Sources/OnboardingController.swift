@@ -19,10 +19,11 @@ final class OnboardingController: NSWindowController {
 
     /// Recording-indicator disclosure (stable for tests / copy review).
     static let recordingIndicatorDisclosure = """
-    Overview window previews are optional and use Screen Recording. When enabled, macOS shows the \
-    orange recording indicator in the menu bar while Lattice captures previews. Previews stay in \
-    memory and are never written to disk. You can turn previews off anytime with overview-previews = 'off'. \
-    After granting Screen Recording, Lattice must relaunch for the permission to take effect.
+    Lattice optionally uses Screen Recording to take still pictures of windows while they move. \
+    When enabled, macOS shows the orange recording indicator in the menu bar during those captures. \
+    Pictures stay in memory and are never written to disk. Without Screen Recording, Lattice uses \
+    coloured boxes with app icons instead. After granting Screen Recording, Lattice must relaunch \
+    for the permission to take effect.
     """
 
     private enum Step: Int, CaseIterable {
@@ -141,7 +142,7 @@ final class OnboardingController: NSWindowController {
         case .welcome:
             titleLabel.stringValue = "Welcome to Lattice"
             bodyLabel.stringValue =
-                "Lattice arranges your windows into a nestable layout with workspaces, zoom, and an overview."
+                "Lattice arranges your windows into a nestable layout with workspaces and a zoom camera."
             primaryButton.title = "Continue"
         case .accessibility:
             titleLabel.stringValue = "Accessibility"

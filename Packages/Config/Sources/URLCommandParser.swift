@@ -1,6 +1,6 @@
 import Foundation
 
-/// Parses `lattice://` URLs into `Command` values (PLAN §7).
+/// Parses `lattice://` URLs into `Command` values (PLAN §7 / ADDENDUM-2 §R).
 public enum URLCommandParser {
     public enum URLCommandError: Error, Equatable, CustomStringConvertible {
         case invalidURL
@@ -40,7 +40,7 @@ public enum URLCommandParser {
             .split(separator: "/", omittingEmptySubsequences: true)
             .map(String.init)
 
-        // Short aliases: lattice://workspace/2, lattice://overview, …
+        // Short aliases: lattice://workspace/2, …
         if !host.isEmpty && host != "run" {
             return try parseAlias(host: host, pathParts: pathParts, url: url)
         }
@@ -74,7 +74,6 @@ public enum URLCommandParser {
         }
         guard let cmd = items.first(where: { $0.name == "cmd" })?.value,
               !cmd.isEmpty else {
-            // Also accept lattice://run/<encoded> path form? Only query per plan.
             throw URLCommandError.missingCommand
         }
         _ = pathParts
@@ -94,12 +93,12 @@ public enum URLCommandParser {
                 throw URLCommandError.parseFailed("workspace alias requires a number")
             }
             return try CommandParser.parse("workspace \(raw)")
-        case "overview":
-            return .overview
         case "reload-config":
             return .reloadConfig
-        case "float-all":
-            return .floatAll
+        case "unmanage-all":
+            return .unmanageAll
+        case "dock-all":
+            return .dockAll
         case "retile":
             return .retile
         case "enable":
@@ -112,21 +111,31 @@ public enum URLCommandParser {
                 throw URLCommandError.parseFailed("mode alias requires a name")
             }
             return try CommandParser.parse("mode \(raw)")
-        case "view":
+        case "recall-view":
             guard let raw = pathParts.first else {
-                throw URLCommandError.parseFailed("view alias requires 1-9")
+                throw URLCommandError.parseFailed("recall-view alias requires 1-9")
             }
-            return try CommandParser.parse("view \(raw)")
-        case "save-view":
+            return try CommandParser.parse("recall-view \(raw)")
+        case "store-view":
             guard let raw = pathParts.first else {
-                throw URLCommandError.parseFailed("save-view alias requires 1-9")
+                throw URLCommandError.parseFailed("store-view alias requires 1-9")
             }
-            return try CommandParser.parse("save-view \(raw)")
+            return try CommandParser.parse("store-view \(raw)")
         case "focus":
             guard let raw = pathParts.first else {
                 throw URLCommandError.parseFailed("focus alias requires a direction")
             }
             return try CommandParser.parse("focus \(raw)")
+        case "pan":
+            guard let raw = pathParts.first else {
+                throw URLCommandError.parseFailed("pan alias requires a direction")
+            }
+            return try CommandParser.parse("pan \(raw)")
+        case "desktop-area":
+            guard let raw = pathParts.first else {
+                throw URLCommandError.parseFailed("desktop-area alias requires show|hide|toggle")
+            }
+            return try CommandParser.parse("desktop-area \(raw)")
         default:
             throw URLCommandError.unknownPath(host)
         }

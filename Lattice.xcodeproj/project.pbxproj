@@ -17,7 +17,6 @@
 		B3CB5D3B858763E69D1CFD7A /* Config in Frameworks */ = {isa = PBXBuildFile; productRef = 94F8F7FC9AC5CF59928000F7 /* Config */; };
 		B4F73914F1DD845652BDF939 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D68916DC2D741F5A02F88E2 /* AppDelegate.swift */; };
 		B7E7E21CE6CC0E8909D7C89F /* PlatformMac in Frameworks */ = {isa = PBXBuildFile; productRef = 70D708262151BAE9D0974CDC /* PlatformMac */; };
-		BE635285E54DE7919AB35BE7 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 0B24DD6D2F580D3B0B37B6CC /* Sparkle */; };
 		CD7959F61F9D5AE052D7D14D /* PermissionMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A8A579D7D03093F2D5FF0A /* PermissionMonitor.swift */; };
 		DF019927FFD5C23C38340BFB /* OnboardingController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F5879B3009ADFCB519D9866 /* OnboardingController.swift */; };
 /* End PBXBuildFile section */
@@ -44,7 +43,6 @@
 				ABB28A64515D31747E672FE3 /* LayoutModel in Frameworks */,
 				620BD72ED549B92059F97AE4 /* LayoutEngine in Frameworks */,
 				0CA308B4104A998762DD120D /* Platform in Frameworks */,
-				BE635285E54DE7919AB35BE7 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -106,6 +104,7 @@
 			buildPhases = (
 				A8D96910FE38A9E143FFFF6F /* Sources */,
 				14A2C5F5B2F00EFB910846F0 /* Frameworks */,
+				18E09A2652D85D026C130B1D /* Check release strings */,
 			);
 			buildRules = (
 			);
@@ -119,7 +118,6 @@
 				44512FE7D327D88F0F930953 /* LayoutModel */,
 				C6E6F73D6D922EE3203F8536 /* LayoutEngine */,
 				C4B95F547B03C23D4DBA1DEB /* Platform */,
-				0B24DD6D2F580D3B0B37B6CC /* Sparkle */,
 			);
 			productName = Lattice;
 			productReference = FF3B53D4F9DD5D7C4B93487D /* Lattice.app */;
@@ -146,7 +144,6 @@
 			mainGroup = 11DBE2CDA4885CF9FA6A4DC4;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				D2AE46C9B7610F94CFC062EF /* XCRemoteSwiftPackageReference "Sparkle" */,
 				4DD2FC220268A4491AD0F3FA /* XCLocalSwiftPackageReference "." */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -158,6 +155,28 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		18E09A2652D85D026C130B1D /* Check release strings */ = {
+			isa = PBXShellScriptBuildPhase;
+			alwaysOutOfDate = 1;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Check release strings";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\nif [ \"${CONFIGURATION}\" != \"Release\" ]; then\n  exit 0\nfi\n\"${SRCROOT}/scripts/check-release-strings.sh\" \"${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		A8D96910FE38A9E143FFFF6F /* Sources */ = {
@@ -366,23 +385,7 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		D2AE46C9B7610F94CFC062EF /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.6.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
-		0B24DD6D2F580D3B0B37B6CC /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = D2AE46C9B7610F94CFC062EF /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
-		};
 		4283291640CADD913730C4E5 /* AppCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = AppCore;

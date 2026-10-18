@@ -47,7 +47,7 @@ public struct GapsConfig: Sendable, Equatable {
     public var inner: GapValue
     public var outer: GapValue
 
-    public init(inner: GapValue = .uniform(0), outer: GapValue = .uniform(0)) {
+    public init(inner: GapValue = .uniform(10), outer: GapValue = .uniform(10)) {
         self.inner = inner
         self.outer = outer
     }

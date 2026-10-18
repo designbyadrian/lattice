@@ -10,10 +10,11 @@ public enum ConfigParser {
         "default-tiling",
         "follow-app-activation",
         "float-windows-without-fullscreen",
-        "overview-previews",
+        "menu-bar-controls",
         "default-layout",
         "gaps",
         "modifiers",
+        "mouse",
         "borders",
         "focus-follows-mouse",
         "mode",
@@ -27,8 +28,11 @@ public enum ConfigParser {
         "rules",
         "workspace",
         "display",
-        "overview",
+        "layout",
+        "zoom",
         "tabs",
+        "desktop-area",
+        "window-sizing",
         "experimental",
     ]
 
@@ -92,12 +96,10 @@ public enum ConfigParser {
             if let b = v as? Bool { config.floatWindowsWithoutFullscreen = b }
             else { errors.append(.badType("bool", keyPath: "float-windows-without-fullscreen")) }
         }
-        if let v = table["overview-previews"] {
-            if let s = v as? String, let mode = OverviewPreviewsMode(rawValue: s) {
-                config.overviewPreviews = mode
-            } else {
-                errors.append(.badType("'auto'|'live'|'snapshots'|'off'", keyPath: "overview-previews"))
-            }
+        if let v = table["menu-bar-controls"] {
+            do { config.menuBarControls = try parseMenuBarControls(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
 
         if let gaps = table["gaps"] {
@@ -108,6 +110,12 @@ public enum ConfigParser {
 
         if let modifiers = table["modifiers"] {
             do { config.modifiers = try parseModifiers(modifiers) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
+
+        if let mouse = table["mouse"] {
+            do { config.mouse = try parseMouse(mouse) }
             catch let e as ConfigError { errors.append(e) }
             catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
@@ -162,6 +170,31 @@ public enum ConfigParser {
         }
         if let v = table["rules"] {
             do { config.rules = try parseRules(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
+        if let v = table["layout"] {
+            do { config.layout = try parseLayoutGeometry(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
+        if let v = table["zoom"] {
+            do { config.zoom = try parseZoomConfig(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
+        if let v = table["tabs"] {
+            do { config.tabs = try parseTabsConfig(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
+        if let v = table["desktop-area"] {
+            do { config.desktopArea = try parseDesktopAreaConfig(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
+        if let v = table["window-sizing"] {
+            do { config.windowSizing = try parseWindowSizingConfig(v) }
             catch let e as ConfigError { errors.append(e) }
             catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
@@ -230,9 +263,23 @@ public enum ConfigParser {
         guard let table = value as? [String: Any] else {
             throw ConfigError.badType("number or per-side table", keyPath: path)
         }
-        let allowed: Set<String> = ["left", "right", "top", "bottom"]
+        let axisKeys: Set<String> = ["horizontal", "vertical"]
+        let sideKeys: Set<String> = ["left", "right", "top", "bottom"]
+        let allowed = axisKeys.union(sideKeys)
         for key in table.keys where !allowed.contains(key) {
             throw ConfigError.unknownKey("\(path).\(key)")
+        }
+        if table.keys.contains(where: { axisKeys.contains($0) }) {
+            func axis(_ name: String) throws -> Double {
+                guard let v = table[name] else { return 0 }
+                guard let n = doubleValue(v) else {
+                    throw ConfigError.badType("number", keyPath: "\(path).\(name)")
+                }
+                return n
+            }
+            let h = try axis("horizontal")
+            let v = try axis("vertical")
+            return .perSide(GapInsetsConfig(left: h, right: h, top: v, bottom: v))
         }
         func side(_ name: String) throws -> Double {
             guard let v = table[name] else { return 0 }
@@ -249,13 +296,35 @@ public enum ConfigParser {
         ))
     }
 
+    private static func parseMenuBarControls(_ value: Any) throws -> [MenuBarControl] {
+        let list: [String]
+        if let typed = value as? [String] {
+            list = typed
+        } else if let anyList = value as? [Any], let strings = anyList as? [String] {
+            list = strings
+        } else {
+            throw ConfigError.badType("array of strings", keyPath: "menu-bar-controls")
+        }
+        var result: [MenuBarControl] = []
+        for (i, raw) in list.enumerated() {
+            guard let control = MenuBarControl(rawValue: raw) else {
+                throw ConfigError(
+                    "unknown menu-bar control '\(raw)'",
+                    keyPath: "menu-bar-controls[\(i)]"
+                )
+            }
+            result.append(control)
+        }
+        return result
+    }
+
     private static func parseModifiers(_ value: Any) throws -> ModifiersConfig {
         guard let table = value as? [String: Any] else {
             throw ConfigError.badType("table", keyPath: "modifiers")
         }
         var errors: [ConfigError] = []
         let allowed: Set<String> = [
-            "alt", "ctrl", "cmd", "shift", "drag-modifier", "pinch-modifier",
+            "alt", "ctrl", "cmd", "shift", "frame-modifier", "pinch-modifier",
         ]
         for key in table.keys where !allowed.contains(key) {
             errors.append(.unknownKey("modifiers.\(key)"))
@@ -277,12 +346,12 @@ public enum ConfigParser {
         }
         side("alt"); side("ctrl"); side("cmd"); side("shift")
 
-        if let v = table["drag-modifier"] {
+        if let v = table["frame-modifier"] {
             if let s = v as? String {
-                do { config.dragModifier = try ModifierSet.parseModifiers(s) }
-                catch { errors.append(ConfigError("\(error)", keyPath: "modifiers.drag-modifier")) }
+                do { config.frameModifier = try ModifierSet.parseModifiers(s) }
+                catch { errors.append(ConfigError("\(error)", keyPath: "modifiers.frame-modifier")) }
             } else {
-                errors.append(.badType("string", keyPath: "modifiers.drag-modifier"))
+                errors.append(.badType("string", keyPath: "modifiers.frame-modifier"))
             }
         }
         if let v = table["pinch-modifier"] {
@@ -291,6 +360,36 @@ public enum ConfigParser {
                 catch { errors.append(ConfigError("\(error)", keyPath: "modifiers.pinch-modifier")) }
             } else {
                 errors.append(.badType("string", keyPath: "modifiers.pinch-modifier"))
+            }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseMouse(_ value: Any) throws -> MouseConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "mouse")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = ["double-click-desktop", "double-click-title"]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("mouse.\(key)"))
+        }
+        var config = MouseConfig.default
+        if let v = table["double-click-desktop"] {
+            if let s = v as? String {
+                do { config.doubleClickDesktop = try MouseDoubleClickAction.parse(s) }
+                catch { errors.append(ConfigError("\(error)", keyPath: "mouse.double-click-desktop")) }
+            } else {
+                errors.append(.badType("string", keyPath: "mouse.double-click-desktop"))
+            }
+        }
+        if let v = table["double-click-title"] {
+            if let s = v as? String {
+                do { config.doubleClickTitle = try MouseDoubleClickAction.parse(s) }
+                catch { errors.append(ConfigError("\(error)", keyPath: "mouse.double-click-title")) }
+            } else {
+                errors.append(.badType("string", keyPath: "mouse.double-click-title"))
             }
         }
         if !errors.isEmpty { throw ConfigErrorList(errors) }
@@ -713,6 +812,256 @@ public enum ConfigParser {
             }
             return .nameSubstring(raw)
         }
+    }
+
+    // MARK: - Lattice extension tables (ADDENDUM-3 §9)
+
+    private static func parseLayoutGeometry(_ value: Any) throws -> LayoutGeometryConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "layout")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = [
+            "insert-takes-from", "insert-ratio", "close-gives-to", "live-visible-fraction",
+            "min-ratio", "shrink-past-app-minimum", "tile-floor", "fallback-min-size",
+            "drop-edge-fraction", "screen-edge-band",
+        ]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("layout.\(key)"))
+        }
+        var config = LayoutGeometryConfig.default
+        if let v = table["insert-takes-from"] {
+            if let s = v as? String, let mode = InsertTakesFrom(rawValue: s) {
+                config.insertTakesFrom = mode
+            } else {
+                errors.append(.badType("'target'|'row'", keyPath: "layout.insert-takes-from"))
+            }
+        }
+        if let v = table["insert-ratio"] {
+            if let n = doubleValue(v), (0.15...0.85).contains(n) { config.insertRatio = n }
+            else { errors.append(.badType("float 0.15–0.85", keyPath: "layout.insert-ratio")) }
+        }
+        if let v = table["close-gives-to"] {
+            if let s = v as? String, let mode = CloseGivesTo(rawValue: s) {
+                config.closeGivesTo = mode
+            } else {
+                errors.append(.badType("'donor'|'row'|'neighbour'", keyPath: "layout.close-gives-to"))
+            }
+        }
+        if let v = table["live-visible-fraction"] {
+            if let n = doubleValue(v), (0.5...1).contains(n) { config.liveVisibleFraction = n }
+            else { errors.append(.badType("float 0.5–1", keyPath: "layout.live-visible-fraction")) }
+        }
+        if let v = table["min-ratio"] {
+            if let n = doubleValue(v), (0.005...0.2).contains(n) { config.minRatio = n }
+            else { errors.append(.badType("float 0.005–0.2", keyPath: "layout.min-ratio")) }
+        }
+        if let v = table["shrink-past-app-minimum"] {
+            if let b = v as? Bool { config.shrinkPastAppMinimum = b }
+            else { errors.append(.badType("bool", keyPath: "layout.shrink-past-app-minimum")) }
+        }
+        if let v = table["tile-floor"] {
+            do { config.tileFloor = try parseSizePair(v, path: "layout.tile-floor") }
+            catch let e as ConfigError { errors.append(e) }
+        }
+        if let v = table["fallback-min-size"] {
+            do { config.fallbackMinSize = try parseSizePair(v, path: "layout.fallback-min-size") }
+            catch let e as ConfigError { errors.append(e) }
+        }
+        if let v = table["drop-edge-fraction"] {
+            if let n = doubleValue(v), (0.1...0.45).contains(n) { config.dropEdgeFraction = n }
+            else { errors.append(.badType("float 0.1–0.45", keyPath: "layout.drop-edge-fraction")) }
+        }
+        if let v = table["screen-edge-band"] {
+            if let n = intValue(v) { config.screenEdgeBand = n }
+            else { errors.append(.badType("integer", keyPath: "layout.screen-edge-band")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseZoomConfig(_ value: Any) throws -> ZoomConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "zoom")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = [
+            "icon-tile-slack", "group-tile-below", "group-tile-above", "still-timeout-ms",
+        ]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("zoom.\(key)"))
+        }
+        var config = ZoomConfig.default
+        if let v = table["icon-tile-slack"] {
+            if let n = intValue(v) { config.iconTileSlack = n }
+            else { errors.append(.badType("integer", keyPath: "zoom.icon-tile-slack")) }
+        }
+        if let v = table["group-tile-below"] {
+            if let n = intValue(v) { config.groupTileBelow = n }
+            else { errors.append(.badType("integer", keyPath: "zoom.group-tile-below")) }
+        }
+        if let v = table["group-tile-above"] {
+            if let n = intValue(v) { config.groupTileAbove = n }
+            else { errors.append(.badType("integer", keyPath: "zoom.group-tile-above")) }
+        }
+        if let v = table["still-timeout-ms"] {
+            if let n = intValue(v) { config.stillTimeoutMs = n }
+            else { errors.append(.badType("integer", keyPath: "zoom.still-timeout-ms")) }
+        }
+        if config.groupTileAbove <= config.groupTileBelow {
+            errors.append(ConfigError(
+                "group-tile-above must be greater than group-tile-below",
+                keyPath: "zoom.group-tile-above"
+            ))
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseTabsConfig(_ value: Any) throws -> TabsConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "tabs")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = [
+            "tab-bar-height", "tab-bar-ref-size", "tab-bar-min-scale", "tab-bar-hide-below",
+        ]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("tabs.\(key)"))
+        }
+        var config = TabsConfig.default
+        if let v = table["tab-bar-height"] {
+            if let n = intValue(v) { config.tabBarHeight = n }
+            else { errors.append(.badType("integer", keyPath: "tabs.tab-bar-height")) }
+        }
+        if let v = table["tab-bar-ref-size"] {
+            do { config.tabBarRefSize = try parseSizePair(v, path: "tabs.tab-bar-ref-size") }
+            catch let e as ConfigError { errors.append(e) }
+        }
+        if let v = table["tab-bar-min-scale"] {
+            if let n = doubleValue(v) { config.tabBarMinScale = n }
+            else { errors.append(.badType("number", keyPath: "tabs.tab-bar-min-scale")) }
+        }
+        if let v = table["tab-bar-hide-below"] {
+            if let n = intValue(v) { config.tabBarHideBelow = n }
+            else { errors.append(.badType("integer", keyPath: "tabs.tab-bar-hide-below")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseDesktopAreaConfig(_ value: Any) throws -> DesktopAreaConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "desktop-area")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = [
+            "min-size", "reshow-ratio", "drop-edge-fraction", "drop-edge-max",
+            "float-max-fraction", "float-margin", "float-cascade",
+            "sole-float-fills", "float-nudge-in",
+        ]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("desktop-area.\(key)"))
+        }
+        var config = DesktopAreaConfig.default
+        if let v = table["min-size"] {
+            do { config.minSize = try parseSizePair(v, path: "desktop-area.min-size") }
+            catch let e as ConfigError { errors.append(e) }
+        }
+        if let v = table["reshow-ratio"] {
+            if let n = doubleValue(v) { config.reshowRatio = n }
+            else { errors.append(.badType("number", keyPath: "desktop-area.reshow-ratio")) }
+        }
+        if let v = table["drop-edge-fraction"] {
+            if let n = doubleValue(v) { config.dropEdgeFraction = n }
+            else { errors.append(.badType("number", keyPath: "desktop-area.drop-edge-fraction")) }
+        }
+        if let v = table["drop-edge-max"] {
+            if let n = intValue(v) { config.dropEdgeMax = n }
+            else { errors.append(.badType("integer", keyPath: "desktop-area.drop-edge-max")) }
+        }
+        if let v = table["float-max-fraction"] {
+            if let n = doubleValue(v), (0.3...1).contains(n) { config.floatMaxFraction = n }
+            else { errors.append(.badType("float 0.3–1", keyPath: "desktop-area.float-max-fraction")) }
+        }
+        if let v = table["float-margin"] {
+            if let n = intValue(v) { config.floatMargin = n }
+            else { errors.append(.badType("integer", keyPath: "desktop-area.float-margin")) }
+        }
+        if let v = table["float-cascade"] {
+            if let n = intValue(v) { config.floatCascade = n }
+            else { errors.append(.badType("integer", keyPath: "desktop-area.float-cascade")) }
+        }
+        if let v = table["sole-float-fills"] {
+            if let b = v as? Bool { config.soleFloatFills = b }
+            else { errors.append(.badType("bool", keyPath: "desktop-area.sole-float-fills")) }
+        }
+        if let v = table["float-nudge-in"] {
+            if let b = v as? Bool { config.floatNudgeIn = b }
+            else { errors.append(.badType("bool", keyPath: "desktop-area.float-nudge-in")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseWindowSizingConfig(_ value: Any) throws -> WindowSizingConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "window-sizing")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = [
+            "ax-retries", "ax-readback-delay-ms", "ax-retry-interval-ms", "ax-retry-window-ms",
+            "ax-size-tolerance", "ax-max-resolves", "learn-minimums",
+        ]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("window-sizing.\(key)"))
+        }
+        var config = WindowSizingConfig.default
+        if let v = table["ax-retries"] {
+            if let n = intValue(v), (1...5).contains(n) { config.axRetries = n }
+            else { errors.append(.badType("integer 1–5", keyPath: "window-sizing.ax-retries")) }
+        }
+        if let v = table["ax-readback-delay-ms"] {
+            if let n = intValue(v) { config.axReadbackDelayMs = n }
+            else { errors.append(.badType("integer", keyPath: "window-sizing.ax-readback-delay-ms")) }
+        }
+        if let v = table["ax-retry-interval-ms"] {
+            if let n = intValue(v) { config.axRetryIntervalMs = n }
+            else { errors.append(.badType("integer", keyPath: "window-sizing.ax-retry-interval-ms")) }
+        }
+        if let v = table["ax-retry-window-ms"] {
+            if let n = intValue(v) { config.axRetryWindowMs = n }
+            else { errors.append(.badType("integer", keyPath: "window-sizing.ax-retry-window-ms")) }
+        }
+        if let v = table["ax-size-tolerance"] {
+            if let n = intValue(v) { config.axSizeTolerance = n }
+            else { errors.append(.badType("integer", keyPath: "window-sizing.ax-size-tolerance")) }
+        }
+        if let v = table["ax-max-resolves"] {
+            if let n = intValue(v), (0...5).contains(n) { config.axMaxResolves = n }
+            else { errors.append(.badType("integer 0–5", keyPath: "window-sizing.ax-max-resolves")) }
+        }
+        if let v = table["learn-minimums"] {
+            if let b = v as? Bool { config.learnMinimums = b }
+            else { errors.append(.badType("bool", keyPath: "window-sizing.learn-minimums")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
+
+    private static func parseSizePair(_ value: Any, path: String) throws -> (width: Double, height: Double) {
+        let list: [Any]
+        if let typed = value as? [Any] {
+            list = typed
+        } else {
+            throw ConfigError.badType("[w, h]", keyPath: path)
+        }
+        guard list.count == 2,
+              let w = doubleValue(list[0]),
+              let h = doubleValue(list[1]) else {
+            throw ConfigError.badType("[w, h]", keyPath: path)
+        }
+        return (w, h)
     }
 
     // MARK: - Numbers

@@ -56,14 +56,29 @@ public struct KeyChord: Sendable, Equatable, Hashable {
         self.key = key.lowercased()
     }
 
-    /// Parse `alt-shift-h`, `ctrl-alt-1`, `alt-enter`, etc.
+    /// Parse `alt-shift-h`, `ctrl-alt-1`, `ctrl-alt-left-bracket`, etc.
     public static func parse(_ raw: String) throws -> KeyChord {
         let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let parts = trimmed.split(separator: "-").map(String.init)
-        guard let key = parts.last, !key.isEmpty else {
+        guard !parts.isEmpty else {
             throw ConfigError("empty key chord")
         }
-        let modifierNames = Array(parts.dropLast())
+
+        // Longest key match from the end (supports `left-bracket` / `right-bracket`).
+        var key: String?
+        var modifierNames: [String] = []
+        for keyLen in stride(from: min(2, parts.count), through: 1, by: -1) {
+            let candidate = parts.suffix(keyLen).joined(separator: "-")
+            if isKnownKey(candidate) {
+                key = normalizeKey(candidate)
+                modifierNames = Array(parts.dropLast(keyLen))
+                break
+            }
+        }
+        guard let key else {
+            throw ConfigError("unknown key in chord '\(raw)'")
+        }
+
         var mods = ModifierSet()
         for part in modifierNames {
             switch part {
@@ -75,18 +90,16 @@ public struct KeyChord: Sendable, Equatable, Hashable {
                 throw ConfigError("unknown modifier '\(part)' in chord '\(raw)'")
             }
         }
-        guard Self.isKnownKey(key) else {
-            throw ConfigError("unknown key '\(key)' in chord '\(raw)'")
-        }
         return KeyChord(modifiers: mods, key: key)
     }
 
     public var description: String {
+        // Order matches ADDENDUM-2 B11 (`ctrl-alt-cmd-shift-…`).
         var parts: [String] = []
         if modifiers.control { parts.append("ctrl") }
         if modifiers.option { parts.append("alt") }
-        if modifiers.shift { parts.append("shift") }
         if modifiers.command { parts.append("cmd") }
+        if modifiers.shift { parts.append("shift") }
         parts.append(key)
         return parts.joined(separator: "-")
     }
@@ -98,11 +111,21 @@ public struct KeyChord: Sendable, Equatable, Hashable {
         "enter", "return", "tab", "space", "esc", "escape",
         "up", "down", "left", "right",
         "minus", "equal", "comma", "period", "slash", "backslash",
-        "semicolon", "quote", "leftbracket", "rightbracket", "grave",
+        "semicolon", "quote", "leftbracket", "rightbracket",
+        "left-bracket", "right-bracket", "grave",
     ]
 
     public static func isKnownKey(_ key: String) -> Bool {
         knownKeys.contains(key.lowercased())
+    }
+
+    /// Canonical form used in bindings (`left-bracket`, not `leftbracket`).
+    private static func normalizeKey(_ key: String) -> String {
+        switch key.lowercased() {
+        case "leftbracket": return "left-bracket"
+        case "rightbracket": return "right-bracket"
+        default: return key.lowercased()
+        }
     }
 }
 
@@ -112,9 +135,9 @@ public struct ModifiersConfig: Sendable, Equatable {
     public var ctrl: ModifierSide
     public var cmd: ModifierSide
     public var shift: ModifierSide
-    /// Lattice extension: modifier chord for drag-over-apps (default `alt`).
-    public var dragModifier: ModifierSet
-    /// Lattice extension: modifier chord for pinch-over-apps (default `ctrl-alt`).
+    /// Lattice extension: modifier chord for frame-rect drag (default `cmd-shift`).
+    public var frameModifier: ModifierSet
+    /// Lattice extension: modifier chord for pinch-over-apps (default `alt`).
     public var pinchModifier: ModifierSet
 
     public init(
@@ -122,14 +145,14 @@ public struct ModifiersConfig: Sendable, Equatable {
         ctrl: ModifierSide = .both,
         cmd: ModifierSide = .both,
         shift: ModifierSide = .both,
-        dragModifier: ModifierSet = ModifierSet(option: true),
-        pinchModifier: ModifierSet = ModifierSet(control: true, option: true)
+        frameModifier: ModifierSet = ModifierSet(shift: true, command: true),
+        pinchModifier: ModifierSet = ModifierSet(option: true)
     ) {
         self.alt = alt
         self.ctrl = ctrl
         self.cmd = cmd
         self.shift = shift
-        self.dragModifier = dragModifier
+        self.frameModifier = frameModifier
         self.pinchModifier = pinchModifier
     }
 

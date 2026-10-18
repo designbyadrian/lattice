@@ -1,7 +1,7 @@
 import Foundation
 import LayoutModel
 
-/// Built-in `[mode.main]` bindings (implementation plan defaults).
+/// Built-in `[mode.main]` bindings (ADDENDUM-2 B11 Control-Option set).
 public enum DefaultBindings {
     public static let modeName = "main"
 
@@ -14,55 +14,25 @@ public enum DefaultBindings {
             bindings.append(KeyBinding(chord: c, commands: [cmd]))
         }
 
-        func bindCycle(_ chord: String, _ commands: [String]) {
-            let c = try! KeyChord.parse(chord)
-            let cmds = commands.map { try! CommandParser.parse($0) }
-            // Prefer layoutCycle when it's the layout toggle.
-            if commands.count == 2,
-               commands[0].hasPrefix("layout"),
-               commands[1].hasPrefix("layout") {
-                bindings.append(KeyBinding(chord: c, commands: [.layoutCycle(["floating", "tiling"])]))
-            } else {
-                bindings.append(KeyBinding(chord: c, commands: cmds))
-            }
-        }
+        bind("ctrl-alt-space", "zoom all")
+        bind("ctrl-alt-up", "zoom out")
+        bind("ctrl-alt-down", "zoom in")
+        bind("ctrl-alt-left", "pan left")
+        bind("ctrl-alt-right", "pan right")
+        bind("ctrl-alt-shift-up", "pan up")
+        bind("ctrl-alt-shift-down", "pan down")
+        bind("ctrl-alt-left-bracket", "history back")
+        bind("ctrl-alt-right-bracket", "history forward")
+        bind("ctrl-alt-enter", "zoom window --toggle")
+        bind("ctrl-alt-d", "desktop-area toggle")
+        bind("ctrl-alt-n", "split-new com.apple.finder")
 
-        // Focus
-        bind("alt-h", "focus left")
-        bind("alt-j", "focus down")
-        bind("alt-k", "focus up")
-        bind("alt-l", "focus right")
-
-        // Move
-        bind("alt-shift-h", "move left")
-        bind("alt-shift-j", "move down")
-        bind("alt-shift-k", "move up")
-        bind("alt-shift-l", "move right")
-
-        // Split / zoom / overview / tabs
-        bind("alt-enter", "split horizontal")
-        bind("alt-v", "split vertical")
-        bind("alt-f", "zoom window")
-        bind("alt-shift-f", "zoom all")
-        bind("alt-o", "overview")
-        bind("alt-tab", "tab next")
-        bind("alt-shift-tab", "tab prev")
-
-        // Workspaces
         for n in 1...9 {
-            bind("alt-\(n)", "workspace \(n)")
-            bind("alt-shift-\(n)", "move-window-to-workspace \(n) --follow")
+            bind("ctrl-alt-shift-\(n)", "store-view \(n)")
+            bind("ctrl-alt-\(n)", "recall-view \(n)")
+            bind("ctrl-alt-cmd-\(n)", "workspace \(n)")
+            bind("ctrl-alt-cmd-shift-\(n)", "move-window-to-workspace \(n)")
         }
-
-        bind("alt-shift-q", "float-all")
-        bind("alt-r", "retile")
-        bindCycle("alt-shift-space", ["layout floating", "layout tiling"])
-
-        // Dock
-        bind("ctrl-alt-h", "dock left")
-        bind("ctrl-alt-j", "dock down")
-        bind("ctrl-alt-k", "dock up")
-        bind("ctrl-alt-l", "dock right")
 
         return ModeConfig(name: modeName, bindings: bindings)
     }

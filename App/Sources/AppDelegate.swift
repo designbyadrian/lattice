@@ -17,7 +17,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var tabStrip: TabStripOverlay?
     private var onboarding: OnboardingController?
     private var permissionMonitor: PermissionMonitor?
-    private var updater: UpdaterController?
     private var inputSafetyNet: InputSafetyNetState = .full
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -42,7 +41,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let server = MacWindowServer()
         windowServer = server
-        syncOverviewConfig(server, config: config)
         server.applyExperimentalConfig(config.experimental)
 
         // Derive input safety net from P5a matrix outcome (pending → full until FAIL signed).
@@ -100,7 +98,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self?.coordinator?.reloadConfig(cfg)
                     self?.bordersOverlay?.config = cfg.borders
                     if let server = self?.windowServer {
-                        self?.syncOverviewConfig(server, config: cfg)
                         server.applyExperimentalConfig(cfg.experimental)
                     }
                 }
@@ -119,11 +116,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         monitor.onChange = { [weak self] in self?.rebuildMenu() }
         monitor.start()
         permissionMonitor = monitor
-
-        let sparkle = UpdaterController()
-        sparkle.onPreferenceChanged = { [weak self] in self?.rebuildMenu() }
-        sparkle.start()
-        updater = sparkle
 
         rebuildMenu()
 
@@ -208,13 +200,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(.separator())
         menu.addItem(menuItem("Settings…", #selector(openSettings), ","))
         menu.addItem(menuItem("About Lattice…", #selector(showAbout)))
-        menu.addItem(menuItem("Float All", #selector(floatAll)))
+        menu.addItem(menuItem("Dock all windows", #selector(dockAll)))
+        menu.addItem(menuItem("Float every window", #selector(unmanageAll)))
         menu.addItem(.separator())
-        if let updater {
-            menu.addItem(menuItem("Check for Updates…", #selector(checkForUpdates)))
-            menu.addItem(updater.toggleAutomaticChecksMenuItem())
-            menu.addItem(.separator())
-        }
         menu.addItem(menuItem("Override macOS tiling…", #selector(overrideTiling)))
         menu.addItem(menuItem("Restore macOS settings & quit", #selector(restorePrefsAndQuit)))
         menu.addItem(.separator())
@@ -237,10 +225,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if let url { NSWorkspace.shared.open(url) }
     }
 
-    @objc private func checkForUpdates() {
-        updater?.checkForUpdates()
-    }
-
     @objc private func openSettings() {
         let url = configLoader?.fileURL ?? ConfigLoader.defaultFileURL()
         let controller = SettingsWindowController(
@@ -253,7 +237,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 if let cfg = self?.configLoader?.config {
                     self?.coordinator?.reloadConfig(cfg)
                     if let server = self?.windowServer {
-                        self?.syncOverviewConfig(server, config: cfg)
                         server.applyExperimentalConfig(cfg.experimental)
                     }
                 }
@@ -298,8 +281,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
-    @objc private func floatAll() {
-        Task { await coordinator?.floatAll() }
+    @objc private func dockAll() {
+        Task { await coordinator?.execute(.dockAll) }
+    }
+
+    @objc private func unmanageAll() {
+        Task { await coordinator?.unmanageAll() }
     }
 
     @objc private func overrideTiling() {
@@ -352,9 +339,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         socketServer?.stop()
         coordinator?.stop()
         permissionMonitor?.stop()
-    }
-
-    private func syncOverviewConfig(_ server: MacWindowServer, config: LatticeConfig) {
-        server.macOverview?.configMode = config.overviewPreviews
     }
 }

@@ -12,9 +12,6 @@ settings:
 packages:
   Lattice:
     path: .
-  Sparkle:
-    url: https://github.com/sparkle-project/Sparkle
-    from: 2.6.0
 targets:
   Lattice:
     type: application
@@ -47,7 +44,14 @@ targets:
         product: LayoutEngine
       - package: Lattice
         product: Platform
-      - package: Sparkle
-        product: Sparkle
+    postBuildScripts:
+      - name: Check release strings
+        basedOnDependencyAnalysis: false
+        script: |
+          set -euo pipefail
+          if [ "${CONFIGURATION}" != "Release" ]; then
+            exit 0
+          fi
+          "${SRCROOT}/scripts/check-release-strings.sh" "${BUILT_PRODUCTS_DIR}/${EXECUTABLE_PATH}"
     scheme:
       testTargets: []

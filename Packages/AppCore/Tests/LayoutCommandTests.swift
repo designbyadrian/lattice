@@ -14,7 +14,11 @@ import Platform
         frame: CGRectCodable(x: 400, y: 0, width: 400, height: 400)
     )
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: true),
+        layoutStore: .inMemory()
+    )
     var focusedRaises: [WindowID] = []
     coordinator.focusWindowHandler = { id in focusedRaises.append(id) }
     await coordinator.start()
@@ -40,7 +44,11 @@ import Platform
         frame: CGRectCodable(x: 400, y: 0, width: 400, height: 400)
     )
     let platform = FakePlatform(windows: [w1, w2])
-    let coordinator = AppCoordinator(platform: platform, layoutStore: .inMemory())
+    let coordinator = AppCoordinator(
+        platform: platform,
+        config: LatticeConfig(defaultTiling: true),
+        layoutStore: .inMemory()
+    )
     await coordinator.start()
     await coordinator.handle(.windowFocused(w1))
 

@@ -17,6 +17,7 @@ public enum ConfigModule {
     }
 }
 
+/// Legacy overview preview mode (kept for PlatformMac overview capture helpers; not a config key).
 public enum OverviewPreviewsMode: String, Sendable, Codable, Equatable {
     case auto
     case live
@@ -40,9 +41,10 @@ public struct LatticeConfig: Sendable, Equatable {
     public var defaultTiling: Bool
     public var followAppActivation: Bool
     public var floatWindowsWithoutFullscreen: Bool
-    public var overviewPreviews: OverviewPreviewsMode
+    public var menuBarControls: [MenuBarControl]
     public var gaps: GapsConfig
     public var modifiers: ModifiersConfig
+    public var mouse: MouseConfig
     public var modes: [String: ModeConfig]
     public var borders: BordersConfig
     public var focusFollowsMouse: FocusFollowsMouseConfig
@@ -55,6 +57,11 @@ public struct LatticeConfig: Sendable, Equatable {
     public var animations: AnimationsConfig
     public var drag: DragConfig
     public var hooks: HooksConfig
+    public var layout: LayoutGeometryConfig
+    public var zoom: ZoomConfig
+    public var tabs: TabsConfig
+    public var desktopArea: DesktopAreaConfig
+    public var windowSizing: WindowSizingConfig
     /// Parsed `[[rules]]` in file order.
     public var rules: [WindowRule]
     /// Lattice extension: `[experimental]` private-API flags (off by default).
@@ -63,12 +70,13 @@ public struct LatticeConfig: Sendable, Equatable {
     public init(
         startAtLogin: Bool = true,
         workspaces: Int = 1,
-        defaultTiling: Bool = true,
+        defaultTiling: Bool = false,
         followAppActivation: Bool = true,
         floatWindowsWithoutFullscreen: Bool = true,
-        overviewPreviews: OverviewPreviewsMode = .auto,
+        menuBarControls: [MenuBarControl] = [.back, .forward, .views, .desktop, .everything],
         gaps: GapsConfig = .default,
         modifiers: ModifiersConfig = .default,
+        mouse: MouseConfig = .default,
         modes: [String: ModeConfig]? = nil,
         borders: BordersConfig = .default,
         focusFollowsMouse: FocusFollowsMouseConfig = .default,
@@ -78,6 +86,11 @@ public struct LatticeConfig: Sendable, Equatable {
         animations: AnimationsConfig = .default,
         drag: DragConfig = .default,
         hooks: HooksConfig = .default,
+        layout: LayoutGeometryConfig = .default,
+        zoom: ZoomConfig = .default,
+        tabs: TabsConfig = .default,
+        desktopArea: DesktopAreaConfig = .default,
+        windowSizing: WindowSizingConfig = .default,
         rules: [WindowRule] = [],
         experimental: ExperimentalConfig = .default
     ) {
@@ -86,9 +99,10 @@ public struct LatticeConfig: Sendable, Equatable {
         self.defaultTiling = defaultTiling
         self.followAppActivation = followAppActivation
         self.floatWindowsWithoutFullscreen = floatWindowsWithoutFullscreen
-        self.overviewPreviews = overviewPreviews
+        self.menuBarControls = menuBarControls
         self.gaps = gaps
         self.modifiers = modifiers
+        self.mouse = mouse
         self.modes = modes ?? [DefaultBindings.modeName: DefaultBindings.mainMode()]
         self.borders = borders
         self.focusFollowsMouse = focusFollowsMouse
@@ -98,6 +112,11 @@ public struct LatticeConfig: Sendable, Equatable {
         self.animations = animations
         self.drag = drag
         self.hooks = hooks
+        self.layout = layout
+        self.zoom = zoom
+        self.tabs = tabs
+        self.desktopArea = desktopArea
+        self.windowSizing = windowSizing
         self.rules = rules
         self.experimental = experimental
     }

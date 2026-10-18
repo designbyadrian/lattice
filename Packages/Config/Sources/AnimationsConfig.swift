@@ -5,7 +5,7 @@ public struct AnimationsConfig: Sendable, Equatable {
     public var enabled: Bool
     public var durationMs: Int
 
-    public init(enabled: Bool = true, durationMs: Int = 300) {
+    public init(enabled: Bool = true, durationMs: Int = 450) {
         self.enabled = enabled
         self.durationMs = durationMs
     }

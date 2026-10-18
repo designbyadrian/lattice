@@ -179,20 +179,20 @@ public final class AppCoordinator: @unchecked Sendable {
             await moveFocusedWindowToWorkspace(target, follow: follow)
         case .moveWindowToDisplay(let target, let follow):
             await moveFocusedWindowToDisplay(target, follow: follow)
-        case .floatAll:
-            await floatAll()
-        case .zoom(let target):
+        case .unmanageAll:
+            await unmanageAll()
+        case .zoom(let target, _):
             await zoom(target)
         case .frameRect:
             await beginFrameRect()
         case .history(let direction):
             await navigateHistory(direction)
-        case .view(let index):
+        case .recallView(let index):
             await loadSavedView(index)
-        case .saveView(let index):
+        case .storeView(let index):
             await saveCurrentView(index)
-        case .overview:
-            await toggleOverview()
+        case .pan, .desktopArea, .dockAll, .splitNew, .splitDirection:
+            break // stubbed until layout/camera phases wire them
         case .reloadConfig:
             break // App shell reloads file then calls reloadConfig(_:)
         case .mode(let name):
@@ -265,7 +265,7 @@ public final class AppCoordinator: @unchecked Sendable {
         }
     }
 
-    public func floatAll() async {
+    public func unmanageAll() async {
         guard allowLayoutHotkey() else { return }
         queue.sync {
             for uuid in displayLayouts.keys {
@@ -278,6 +278,11 @@ public final class AppCoordinator: @unchecked Sendable {
             }
         }
         await applySolvedFrames()
+    }
+
+    /// - Note: Prefer `unmanageAll()` (ADDENDUM-2 §R).
+    public func floatAll() async {
+        await unmanageAll()
     }
 
     /// Leave every managed window on-screen before quit.
@@ -331,6 +336,9 @@ public final class AppCoordinator: @unchecked Sendable {
                 if let focused = engine.workspace.root.tiledWindowIDs.first {
                     engine.frameAlone(focused)
                 }
+            case .desktop:
+                // Stub: frame the desktop region when wired; for now show everything.
+                engine.showAll()
             }
             history.navigate(to: engine.camera)
         }
