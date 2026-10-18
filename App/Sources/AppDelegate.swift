@@ -1,11 +1,14 @@
 import AppKit
 import AppCore
 import Config
+import Platform
+import PlatformMac
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var coordinator: AppCoordinator?
+    private var windowServer: MacWindowServer?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
@@ -25,15 +28,44 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         ))
         menu.addItem(.separator())
         menu.addItem(NSMenuItem(
+            title: "Float All",
+            action: #selector(floatAll),
+            keyEquivalent: ""
+        ))
+        menu.addItem(.separator())
+        menu.addItem(NSMenuItem(
             title: "Quit Lattice",
-            action: #selector(NSApplication.terminate(_:)),
+            action: #selector(quitLattice),
             keyEquivalent: "q"
         ))
         item.menu = menu
         statusItem = item
 
-        // Real platform wiring lands in P3/P4. Stub coordinator for structure.
-        coordinator = nil
-        _ = LatticeConfig.default
+        let server = MacWindowServer()
+        windowServer = server
+        let coordinator = AppCoordinator(platform: server, config: .default)
+        self.coordinator = coordinator
+
+        Task {
+            await coordinator.start()
+        }
+    }
+
+    @objc private func floatAll() {
+        Task {
+            await coordinator?.floatAll()
+        }
+    }
+
+    @objc private func quitLattice() {
+        Task { @MainActor in
+            await coordinator?.prepareSafeQuit()
+            coordinator?.stop()
+            NSApp.terminate(nil)
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        coordinator?.stop()
     }
 }
