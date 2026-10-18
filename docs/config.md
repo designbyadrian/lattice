@@ -1,98 +1,51 @@
 # Lattice configuration reference
 
-**Format version:** Dinky-compatible TOML (best-effort). Lattice extensions are marked below.
-
+**Format:** Dinky-compatible TOML (best-effort) + Lattice extensions.  
 **Path:** `~/.config/lattice/lattice.toml`  
 **Schema:** [`Packages/Config/Sources/Resources/lattice.schema.json`](../Packages/Config/Sources/Resources/lattice.schema.json)  
-**Defaults source:** first-run file from `DefaultConfigText` (also used when the file is missing).
+**Defaults:** `DefaultConfigText` / first-run file.  
+**Layout numbers:** [ADDENDUM-3.md](../ADDENDUM-3.md) §9; goldens in [`refimpl/`](../refimpl/).
 
 ## Validation
 
-- All keys optional; omitted → default.
-- Kebab-case keys.
-- Unknown keys → load error with key path.
-- Broken file → keep last good config; show error in menu.
-- `default-layout` → error (“Lattice has a single tree layout”).
-- `[scrolling]` / `[accordion]` → “not supported” (not unknown-key typos).
+- Optional keys; omitted → default. Kebab-case. Unknown keys → error with key path.
+- Broken file → keep last good config.
+- `default-layout`, `[scrolling]`, `[accordion]` → not supported.
+- `overview-previews` removed (ADDENDUM-2 D6).
 
 ## Top-level
 
-| Key | Type | Default | Notes |
-|---|---|---|---|
-| `start-at-login` | bool | `true` | |
-| `workspaces` | int | `1` | Native Spaces across displays |
-| `default-tiling` | bool | `true` | |
-| `follow-app-activation` | bool | `true` | |
-| `float-windows-without-fullscreen` | bool | `true` | AeroSpace-style heuristic |
-| `overview-previews` | string | `'auto'` | **Lattice:** `auto` \| `live` \| `snapshots` \| `off` |
+| Key | Default | Notes |
+|---|---|---|
+| `start-at-login` | `true` | |
+| `workspaces` | `1` | |
+| `default-tiling` | **`false`** | Float-first (ADDENDUM-2 D1) |
+| `follow-app-activation` | `true` | |
+| `float-windows-without-fullscreen` | `true` | |
+| `menu-bar-controls` | `['back','forward','views','desktop','everything']` | Lattice |
 
-## Tables
+## Common tables
 
-### `[gaps]`
+- `[gaps]` — `inner`/`outer` default **10**
+- `[animations]` — `duration-ms` default **450**
+- `[modifiers]` — sides + `frame-modifier = 'cmd-shift'`, `pinch-modifier = 'alt'` (no `drag-modifier`)
+- `[mouse]` — `double-click-desktop` / `double-click-title` (command or `'none'`)
+- `[layout]`, `[zoom]`, `[tabs]`, `[desktop-area]`, `[window-sizing]` — see ADDENDUM-3 §9
+- `[borders]`, `[focus-follows-mouse]`, `[hooks]`, `[workspace.<n>]`, `[workspace-to-display]`, `[display.<pattern>]`, `[experimental]`
+- `[[rules]]` — Dinky semantics; `run` required
 
-`inner`, `outer`: number or `{ left, right, top, bottom }`.
+## Commands (Lattice names)
 
-### `[workspace.<n>]`
+| Prefer | Not used |
+|---|---|
+| `recall-view` / `store-view` | `view` / `save-view` |
+| `unmanage-all` | `float-all` |
+| `zoom all` | `overview` |
+| `desktop-area` | vendor toggle-desktop forms |
+| `dock-all`, `pan`, `split-new`, `split-direction`, `frame-rect` | — |
 
-`tiling` only. Numbers in `1…workspaces`.
+URL: `lattice://run?cmd=…` uses these names only.
 
-### `[workspace-to-display]`
+## Default bindings
 
-`<n> = 'main' | 'secondary' | '<display-name substring>'` or a list tried in order.
-
-### `[display.<pattern>]`
-
-Per-display gaps. Name patterns beat `main`/`secondary`; longer beats shorter.
-
-### `[animations]`
-
-`enabled`, `duration-ms`. Off under Reduce Motion.
-
-### `[drag]`
-
-`placeholders` — show drop overlays.
-
-### `[modifiers]`
-
-`alt`, `ctrl`, `cmd`, `shift`: `'both' | 'left' | 'right'` (default `'both'`).  
-**Lattice:** `drag-modifier`, `pinch-modifier` (e.g. `'alt'`, `'ctrl-alt'`).
-
-### `[hooks]`
-
-`startup`, `workspace-changing`, `workspace-changed`, `focus-changed`, `mode-changed` — command strings or lists. May use `exec-and-forget` (not via URL).
-
-### `[mode.<name>]`
-
-Bindings: `alt-shift-h = 'command'` or a list (cycles). Start mode: `main`. US-layout key names.
-
-### `[focus-follows-mouse]`
-
-`enabled` (default `false`), `delay-ms` (default `100`), `accordion-edges` (accepted, unused).  
-**Lattice:** `exclude-apps = ['bundle.id', …]`.
-
-### `[borders]`
-
-`enabled` (Lattice default `false`), `width`, `active-color`, `inactive-color`, `order` (`below`\|`above`), `exclude-apps`.  
-Colours: `#rrggbb`, `#rrggbbaa`, or **Lattice** `'accent'`.
-
-### `[experimental]` (Lattice)
-
-`ax-window-id`, `multitouch` — booleans, default `false`.
-
-## Rules `[[rules]]`
-
-Fields: `app-id` (exact), `app-name` / `title` (case-insensitive regex), `kind` (`normal`\|`dialog`\|`sheet`\|`panel`), `run` (required).
-
-All matching rules run in file order. Last `layout floating` / `layout tiling` wins for placement. Other commands run after place.
-
-**Lattice `run` extensions:** `ignore`, `dock <dir>`, `min-size <w> <h>`, `tab-with <…>`, tree commands (`split`, `zoom`, …).
-
-## Commands
-
-Shared grammar: `verb arg… --flag` (bindings, rules, hooks, URL, CLI).
-
-Kept from Dinky (subset): workspace navigation, focus/move/join/resize/balance, mode, reload-config, enable, list-*, exec-and-forget (not URL), layout floating|tiling only.
-
-Lattice tree commands: `split`, `dock`, `tab-with` / `untab` / `tab`, `zoom`, `frame-rect`, `history`, `view` / `save-view`, `overview`, `float-all`, `ignore`, `min-size`.
-
-See default bindings in the [README](../README.md#default-key-bindings).
+See [README.md](../README.md#default-key-bindings-b11).
