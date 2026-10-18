@@ -37,3 +37,7 @@ jobs:
 
       - name: CHANGELOG present
         run: test -f CHANGELOG.md && grep -q '0.1.0' CHANGELOG.md
+
+      - name: Refimpl layout goldens (Python)
+        run: python3 refimpl/test_refimpl.py
+        working-directory: ${{ github.workspace }}

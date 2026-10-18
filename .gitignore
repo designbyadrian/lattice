@@ -20,3 +20,7 @@ xcuserdata/
 *.dSYM
 Package.resolved.bak
 .idea/
+
+# Python
+refimpl/__pycache__/
+*.pyc
