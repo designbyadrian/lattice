@@ -1,9 +1,9 @@
 import Foundation
 import LayoutModel
 
-/// Shared layout motion curve and duration (pure math; platform drives display-link in P7).
+/// Shared layout motion curve and duration (pure math; platform drives display-link).
 public enum LayoutMotion {
-    /// Default duration for split / dock / close / zoom (tuned later in P7).
+    /// Default duration for split / dock / close / zoom (≤ 300–450 ms per PLAN §7).
     public static let defaultDurationSeconds: Double = 0.36
 
     /// Smoothstep-style ease-in-out cubic: 3t² − 2t³ mapped through a slightly stronger ease.

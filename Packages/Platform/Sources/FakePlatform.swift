@@ -8,6 +8,9 @@ public final class FakePlatform: WindowServerProtocol, PermissionsChecking, @unc
     public var isAccessibilityTrusted: Bool
     public var hasScreenRecordingAccess: Bool
     public let spacesController: any SpacesControlling
+    public let frameAnimator: any FrameAnimating
+    public let overviewPresenter: any OverviewPresenting
+    public var accessibilityReduceMotion: Bool
 
     /// Recorded `setFrame` calls in order.
     public private(set) var appliedFrames: [(id: UInt32, pid: Int32, frame: CGRectCodable)] = []
@@ -29,7 +32,8 @@ public final class FakePlatform: WindowServerProtocol, PermissionsChecking, @unc
         experimentalFlags: ExperimentalFlags = .default,
         isAccessibilityTrusted: Bool = true,
         hasScreenRecordingAccess: Bool = false,
-        spacesController: FakeSpacesController? = nil
+        spacesController: FakeSpacesController? = nil,
+        accessibilityReduceMotion: Bool = false
     ) {
         self.windows = windows
         self.displays = displays
@@ -37,6 +41,19 @@ public final class FakePlatform: WindowServerProtocol, PermissionsChecking, @unc
         self.isAccessibilityTrusted = isAccessibilityTrusted
         self.hasScreenRecordingAccess = hasScreenRecordingAccess
         self.spacesController = spacesController ?? FakeSpacesController()
+        self.accessibilityReduceMotion = accessibilityReduceMotion
+        self.overviewPresenter = FakeOverviewPresenter()
+        let box = InstantFrameAnimator.ApplierBox()
+        let animator = InstantFrameAnimator(box: box)
+        self.frameAnimator = animator
+        box.apply = { [weak self] target in
+            guard let self else { return }
+            try await self.setFrame(target.frame, for: target.windowID, pid: target.pid)
+        }
+    }
+
+    public var fakeOverview: FakeOverviewPresenter {
+        overviewPresenter as! FakeOverviewPresenter
     }
 
     public var fakeSpaces: FakeSpacesController {

@@ -53,12 +53,12 @@ let package = Package(
         ),
         .target(
             name: "PlatformMac",
-            dependencies: ["Platform", "LayoutModel", "Config"],
+            dependencies: ["Platform", "LayoutModel", "LayoutEngine", "Config"],
             path: "Packages/PlatformMac/Sources"
         ),
         .testTarget(
             name: "PlatformMacTests",
-            dependencies: ["PlatformMac", "Platform", "LayoutModel", "Config"],
+            dependencies: ["PlatformMac", "Platform", "LayoutModel", "LayoutEngine", "Config"],
             path: "Packages/PlatformMac/Tests"
         ),
         .target(

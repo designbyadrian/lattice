@@ -43,12 +43,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let server = MacWindowServer()
         windowServer = server
+        syncOverviewConfig(server, config: .default)
         let coordinator = AppCoordinator(platform: server, config: .default)
         self.coordinator = coordinator
+
+        // P7: ensure recording-indicator disclosure text is present in the onboarding stub.
+        assert(
+            OnboardingStub.recordingIndicatorDisclosure.contains("recording indicator"),
+            "Onboarding stub must disclose the Screen Recording indicator"
+        )
 
         Task {
             await coordinator.start()
         }
+    }
+
+    private func syncOverviewConfig(_ server: MacWindowServer, config: LatticeConfig) {
+        server.macOverview?.configMode = config.overviewPreviews
     }
 
     @objc private func floatAll() {

@@ -8,6 +8,8 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
     public var experimentalFlags: ExperimentalFlags
     public let permissions: MacPermissions
     public let spacesController: any SpacesControlling
+    public let frameAnimator: any FrameAnimating
+    public let overviewPresenter: any OverviewPresenting
 
     private let writer: MacWindowWriter
     private let workspaceObservers = MacWorkspaceObservers()
@@ -19,12 +21,28 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
         experimentalFlags: ExperimentalFlags = .default,
         permissions: MacPermissions = MacPermissions(),
         writer: MacWindowWriter = .shared,
-        spacesController: MacSpacesController? = nil
+        spacesController: MacSpacesController? = nil,
+        overviewPresenter: MacOverviewPresenter? = nil
     ) {
         self.experimentalFlags = experimentalFlags
         self.permissions = permissions
         self.writer = writer
         self.spacesController = spacesController ?? MacSpacesController()
+        let animator = DisplayLinkAnimator { [writer] target in
+            try await writer.setFrame(target.frame, for: target.windowID, pid: target.pid)
+        }
+        self.frameAnimator = animator
+        let overview = overviewPresenter ?? MacOverviewPresenter()
+        overview.screenRecordingGranted = { permissions.hasScreenRecordingAccess }
+        self.overviewPresenter = overview
+    }
+
+    public var accessibilityReduceMotion: Bool {
+        ReduceMotion.isEnabled
+    }
+
+    public var macOverview: MacOverviewPresenter? {
+        overviewPresenter as? MacOverviewPresenter
     }
 
     public var macSpaces: MacSpacesController? {

@@ -38,6 +38,21 @@ public final class AppCoordinator: @unchecked Sendable {
         platform.spacesController.spacesMenuNotice
     }
 
+    /// Camera navigation history keyed by `"\(displayUUID)#\(workspaceNumber)"`.
+    public private(set) var navigationHistories: [String: NavigationHistory] = [:]
+
+    /// Overview is open (zoomed-out tree UI).
+    public private(set) var isOverviewVisible: Bool = false
+
+    /// Pending frame-rect drag (world coordinates); set when `frame-rect` opens the overlay.
+    public private(set) var pendingFrameRect: Rect?
+
+    /// Collapse thresholds for overview tiles.
+    public var collapseThresholds: CollapseThresholds = .default
+
+    /// Animation duration override (nil → `LayoutMotion.defaultDurationSeconds`).
+    public var animationDurationSeconds: Double?
+
     private let queue = DispatchQueue(label: "com.designbyadrian.lattice.app-coordinator")
     private var started = false
     private var spacesReconcileDebounce: DispatchWorkItem?
@@ -105,6 +120,18 @@ public final class AppCoordinator: @unchecked Sendable {
             await moveFocusedWindowToDisplay(target, follow: follow)
         case .floatAll:
             await floatAll()
+        case .zoom(let target):
+            await zoom(target)
+        case .frameRect:
+            await beginFrameRect()
+        case .history(let direction):
+            await navigateHistory(direction)
+        case .view(let index):
+            await loadSavedView(index)
+        case .saveView(let index):
+            await saveCurrentView(index)
+        case .overview:
+            await toggleOverview()
         case .reloadConfig:
             break // App shell reloads file then calls reloadConfig(_:)
         default:
@@ -129,6 +156,11 @@ public final class AppCoordinator: @unchecked Sendable {
 
     /// Leave every managed window on-screen before quit.
     public func prepareSafeQuit() async {
+        if isOverviewVisible {
+            await dismissOverview(restoreCamera: true)
+        }
+        platform.frameAnimator.cancelAnimation()
+
         let displays = await platform.listDisplays()
         let union = displays.map(\.visibleFrame.asRect).reduce(Rect.zero) { acc, r in
             if acc.width == 0 && acc.height == 0 { return r }
@@ -139,13 +171,161 @@ public final class AppCoordinator: @unchecked Sendable {
             return Rect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
         }
 
-        let frames = queue.sync { lastFrames }
+        // Apply un-zoomed solve frames so nothing stays parked off-screen.
+        await applySolvedFrames(animated: false, useCamera: false)
 
+        let frames = queue.sync { lastFrames }
         for (id, frame) in frames {
             guard let cgID = id.cgWindowID else { continue }
             let clamped = clampOnScreen(frame, within: union)
             try? await platform.setFrame(clamped.asCGRectCodable, for: cgID, pid: id.processID)
         }
+    }
+
+    // MARK: - Camera / zoom / overview (P7)
+
+    public func zoom(_ target: ZoomTarget) async {
+        guard allowLayoutHotkey() else { return }
+        await mutateActiveCamera { engine, history in
+            switch target {
+            case .in:
+                let focus = engine.camera.focusPath
+                let point: Point
+                if let frame = engine.solveResult.nodeFrames[focus] {
+                    point = Point(x: frame.midX, y: frame.midY)
+                } else {
+                    point = Point(x: engine.displayRect.midX, y: engine.displayRect.midY)
+                }
+                engine.stepIn(towardPoint: point)
+            case .out:
+                engine.stepOut()
+            case .all:
+                engine.showAll()
+            case .window:
+                if let focused = engine.workspace.root.tiledWindowIDs.first {
+                    engine.frameAlone(focused)
+                }
+            }
+            history.navigate(to: engine.camera)
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    /// Open frame-rect mode: next `commitFrameRect` zooms to the dragged world rect.
+    public func beginFrameRect() async {
+        guard allowLayoutHotkey() else { return }
+        queue.sync { pendingFrameRect = nil }
+    }
+
+    public func commitFrameRect(_ rect: Rect) async {
+        guard allowLayoutHotkey() else { return }
+        await mutateActiveCamera { engine, history in
+            engine.frameRect(rect)
+            history.navigate(to: engine.camera)
+        }
+        queue.sync { pendingFrameRect = nil }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    public func navigateHistory(_ direction: HistoryDirection) async {
+        guard allowLayoutHotkey() else { return }
+        await mutateActiveCamera { engine, history in
+            let cam: Camera?
+            switch direction {
+            case .back: cam = history.back()
+            case .forward: cam = history.forward()
+            }
+            if let cam {
+                engine.camera = cam
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    public func loadSavedView(_ index: Int) async {
+        guard allowLayoutHotkey() else { return }
+        await mutateActiveCamera { engine, history, layout in
+            if let cam = SavedViews.apply(index, from: layout, history: &history) {
+                engine.camera = cam
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    public func saveCurrentView(_ index: Int) async {
+        guard allowLayoutHotkey() else { return }
+        queue.sync {
+            guard let uuid = displayLayouts.keys.sorted().first else { return }
+            let num = activeWorkspaceNumber[uuid] ?? 1
+            var layout = displayLayouts[uuid] ?? DisplayLayout(displayUUID: uuid)
+            let cam = layout.workspaces[num]?.camera ?? .showAll
+            SavedViews.save(index, camera: cam, into: &layout)
+            displayLayouts[uuid] = layout
+        }
+    }
+
+    public func toggleOverview() async {
+        guard allowLayoutHotkey() else { return }
+        if isOverviewVisible {
+            await dismissOverview(restoreCamera: false)
+        } else {
+            await showOverview()
+        }
+    }
+
+    public func showOverview() async {
+        let displays = await platform.listDisplays()
+        guard let display = displays.first else { return }
+
+        // Zoom out for overview framing.
+        await mutateActiveCamera { engine, history in
+            engine.showAll()
+            history.navigate(to: engine.camera)
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+
+        let tiles = queue.sync { () -> [OverviewTileDescriptor] in
+            let uuid = display.uuid
+            let num = activeWorkspaceNumber[uuid] ?? 1
+            let layout = displayLayouts[uuid] ?? DisplayLayout(displayUUID: uuid)
+            var workspace = layout.workspaces[num] ?? .empty
+            workspace.excludedApps.formUnion(globalExcludedApps)
+            var engine = CameraEngine(
+                workspace: workspace,
+                displayRect: display.visibleFrame.asRect,
+                gaps: gaps
+            )
+            engine.camera = .showAll
+            return Self.buildOverviewTiles(
+                engine: engine,
+                thresholds: collapseThresholds
+            )
+        }
+
+        queue.sync { isOverviewVisible = true }
+        platform.overviewPresenter.presentOverview(
+            displayFrame: display.frame,
+            tiles: tiles
+        ) { [weak self] path in
+            Task { await self?.activateOverviewPath(path) }
+        }
+    }
+
+    public func dismissOverview(restoreCamera: Bool) async {
+        platform.overviewPresenter.dismissOverview()
+        queue.sync { isOverviewVisible = false }
+        if restoreCamera {
+            await applySolvedFrames(animated: true, useCamera: true)
+        }
+    }
+
+    public func activateOverviewPath(_ path: [Int]) async {
+        await mutateActiveCamera { engine, history in
+            engine.camera = Camera(focusPath: path, zoom: 1)
+            history.navigate(to: engine.camera)
+        }
+        await dismissOverview(restoreCamera: false)
+        await applySolvedFrames(animated: true, useCamera: true)
     }
 
     // MARK: - Events
@@ -360,8 +540,16 @@ public final class AppCoordinator: @unchecked Sendable {
     }
 
     public func applySolvedFrames() async {
+        await applySolvedFrames(animated: false, useCamera: true)
+    }
+
+    /// Solve and apply frames. When `useCamera` is true, maps through the workspace camera
+    /// (parking off-view windows). When `animated`, drives `frameAnimator` with shared layout motion.
+    public func applySolvedFrames(animated: Bool, useCamera: Bool) async {
         let displays = await platform.listDisplays()
         var allFrames: [WindowID: Rect] = [:]
+        var targets: [WindowFrameTarget] = []
+        var workspacesByDisplay: [String: Workspace] = [:]
 
         for display in displays {
             let (workspace, gapsCopy): (Workspace, Gaps) = queue.sync {
@@ -371,22 +559,174 @@ public final class AppCoordinator: @unchecked Sendable {
                 workspace.excludedApps.formUnion(globalExcludedApps)
                 return (workspace, gaps)
             }
+            workspacesByDisplay[display.uuid] = workspace
 
-            let result = LayoutEngine.solve(
-                workspace: workspace,
-                displayRect: display.visibleFrame.asRect,
-                gaps: gapsCopy
-            )
+            let displayRect = display.visibleFrame.asRect
+            let result: [WindowID: Rect]
+            if useCamera {
+                let engine = CameraEngine(
+                    workspace: workspace,
+                    displayRect: displayRect,
+                    gaps: gapsCopy
+                )
+                result = engine.framesAtCamera()
+            } else {
+                // Identity camera for safe-quit: unpark everything onto the solved layout.
+                var flat = workspace
+                flat.camera = .showAll
+                result = LayoutEngine.solve(
+                    workspace: flat,
+                    displayRect: displayRect,
+                    gaps: gapsCopy
+                )
+            }
 
             for (id, rect) in result {
                 allFrames[id] = rect
                 guard let cgID = id.cgWindowID, cgID != 0 else { continue }
                 if workspace.state(of: id).isSuspended { continue }
-                try? await platform.setFrame(rect.asCGRectCodable, for: cgID, pid: id.processID)
+                targets.append(WindowFrameTarget(
+                    windowID: cgID,
+                    pid: id.processID,
+                    frame: rect.asCGRectCodable
+                ))
             }
         }
 
         queue.sync { lastFrames = allFrames }
+
+        let duration = animationDurationSeconds ?? LayoutMotion.defaultDurationSeconds
+        let reduceMotion = platform.accessibilityReduceMotion
+        if animated && !reduceMotion {
+            await platform.frameAnimator.animateFrames(
+                to: targets,
+                durationSeconds: duration,
+                reduceMotion: false
+            )
+        } else if animated && reduceMotion {
+            // Reduce Motion: jump (no interpolated motion).
+            await platform.frameAnimator.animateFrames(
+                to: targets,
+                durationSeconds: 0,
+                reduceMotion: true
+            )
+        } else {
+            for t in targets {
+                try? await platform.setFrame(t.frame, for: t.windowID, pid: t.pid)
+            }
+        }
+        _ = workspacesByDisplay
+    }
+
+    // MARK: - Camera helpers
+
+    private func historyKey(displayUUID: String, workspace: Int) -> String {
+        "\(displayUUID)#\(workspace)"
+    }
+
+    private func mutateActiveCamera(
+        _ body: (inout CameraEngine, inout NavigationHistory) -> Void
+    ) async {
+        let displays = await platform.listDisplays()
+        guard let display = displays.first else { return }
+        queue.sync {
+            let num = activeWorkspaceNumber[display.uuid] ?? 1
+            var layout = displayLayouts[display.uuid] ?? DisplayLayout(displayUUID: display.uuid)
+            var workspace = layout.workspaces[num] ?? .empty
+            workspace.excludedApps.formUnion(globalExcludedApps)
+            var engine = CameraEngine(
+                workspace: workspace,
+                displayRect: display.visibleFrame.asRect,
+                gaps: gaps
+            )
+            let key = historyKey(displayUUID: display.uuid, workspace: num)
+            var history = navigationHistories[key] ?? NavigationHistory(current: engine.camera)
+            body(&engine, &history)
+            layout.workspaces[num] = engine.workspace
+            displayLayouts[display.uuid] = layout
+            navigationHistories[key] = history
+        }
+    }
+
+    private func mutateActiveCamera(
+        _ body: (inout CameraEngine, inout NavigationHistory, DisplayLayout) -> Void
+    ) async {
+        let displays = await platform.listDisplays()
+        guard let display = displays.first else { return }
+        queue.sync {
+            let num = activeWorkspaceNumber[display.uuid] ?? 1
+            var layout = displayLayouts[display.uuid] ?? DisplayLayout(displayUUID: display.uuid)
+            var workspace = layout.workspaces[num] ?? .empty
+            workspace.excludedApps.formUnion(globalExcludedApps)
+            var engine = CameraEngine(
+                workspace: workspace,
+                displayRect: display.visibleFrame.asRect,
+                gaps: gaps
+            )
+            let key = historyKey(displayUUID: display.uuid, workspace: num)
+            var history = navigationHistories[key] ?? NavigationHistory(current: engine.camera)
+            body(&engine, &history, layout)
+            layout.workspaces[num] = engine.workspace
+            displayLayouts[display.uuid] = layout
+            navigationHistories[key] = history
+        }
+    }
+
+    public static func buildOverviewTiles(
+        engine: CameraEngine,
+        thresholds: CollapseThresholds
+    ) -> [OverviewTileDescriptor] {
+        var tiles: [OverviewTileDescriptor] = []
+        for path in engine.workspace.root.allPaths() {
+            guard let node = engine.workspace.root.node(at: path),
+                  let onScreen = engine.solveResult.nodeFrames[path] else { continue }
+            let presentation = Collapse.presentation(for: node, frame: onScreen, thresholds: thresholds)
+            var bundleID: String?
+            var title = ""
+            var windowID: UInt32?
+            let isLeaf: Bool
+            switch node {
+            case .panel(let panel):
+                isLeaf = true
+                bundleID = panel.window.bundleID
+                title = panel.window.titleFingerprint
+                windowID = panel.window.cgWindowID
+            case .tabs(let tabs):
+                isLeaf = true
+                if let selected = tabs.selectedWindow {
+                    bundleID = selected.bundleID
+                    title = selected.titleFingerprint
+                    windowID = selected.cgWindowID
+                }
+            case .split:
+                isLeaf = false
+            case .desktop:
+                continue
+            }
+            // Collapsed tiles always; expanded leaves for preview hosts.
+            if presentation != .expanded || isLeaf {
+                tiles.append(OverviewTileDescriptor(
+                    path: path,
+                    frame: CGRectCodable(
+                        x: onScreen.x, y: onScreen.y,
+                        width: onScreen.width, height: onScreen.height
+                    ),
+                    presentation: presentationLabel(presentation),
+                    bundleID: bundleID,
+                    title: title,
+                    windowID: windowID
+                ))
+            }
+        }
+        return tiles
+    }
+
+    private static func presentationLabel(_ p: CollapsePresentation) -> String {
+        switch p {
+        case .expanded: return "expanded"
+        case .windowTile: return "windowTile"
+        case .groupTile: return "groupTile"
+        }
     }
 
     // MARK: - Tree mutations
