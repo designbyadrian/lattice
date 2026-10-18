@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let server = MacWindowServer()
         windowServer = server
         syncOverviewConfig(server, config: config)
+        server.applyExperimentalConfig(config.experimental)
 
         // Derive input safety net from P5a matrix outcome (pending → full until FAIL signed).
         let osMajor = ProcessInfo.processInfo.operatingSystemVersion.majorVersion
@@ -100,6 +101,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self?.bordersOverlay?.config = cfg.borders
                     if let server = self?.windowServer {
                         self?.syncOverviewConfig(server, config: cfg)
+                        server.applyExperimentalConfig(cfg.experimental)
                     }
                 }
                 self?.rebuildMenu()
@@ -205,6 +207,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         menu.addItem(.separator())
         menu.addItem(menuItem("Settings…", #selector(openSettings), ","))
+        menu.addItem(menuItem("About Lattice…", #selector(showAbout)))
         menu.addItem(menuItem("Float All", #selector(floatAll)))
         menu.addItem(.separator())
         if let updater {
@@ -249,12 +252,32 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 _ = self?.configLoader?.reload()
                 if let cfg = self?.configLoader?.config {
                     self?.coordinator?.reloadConfig(cfg)
+                    if let server = self?.windowServer {
+                        self?.syncOverviewConfig(server, config: cfg)
+                        server.applyExperimentalConfig(cfg.experimental)
+                    }
                 }
             }
         )
         settingsController = controller
         controller.showWindow(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    @objc private func showAbout() {
+        let version =
+            Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? "0.1.0"
+        let alert = NSAlert()
+        alert.messageText = "Lattice \(version)"
+        alert.informativeText = """
+            Config format compatible with Dinky by Mikkel Malmberg (MIT).
+
+            Optional [experimental] flags in lattice.toml (ax-window-id, multitouch) are off by default. If a private symbol is missing or a call fails, Lattice auto-disables that flag and keeps the public path.
+            """
+        alert.alertStyle = .informational
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func appendRuleForFrontmost() {

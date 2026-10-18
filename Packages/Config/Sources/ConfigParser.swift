@@ -29,6 +29,7 @@ public enum ConfigParser {
         "display",
         "overview",
         "tabs",
+        "experimental",
     ]
 
     public static func parse(text: String) throws -> LatticeConfig {
@@ -164,6 +165,11 @@ public enum ConfigParser {
             catch let e as ConfigError { errors.append(e) }
             catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
         }
+        if let v = table["experimental"] {
+            do { config.experimental = try parseExperimental(v) }
+            catch let e as ConfigError { errors.append(e) }
+            catch let e as ConfigErrorList { errors.append(contentsOf: e.errors) }
+        }
 
         if !errors.isEmpty {
             throw ConfigErrorList(errors)
@@ -172,6 +178,28 @@ public enum ConfigParser {
     }
 
     // MARK: - Sections
+
+    private static func parseExperimental(_ value: Any) throws -> ExperimentalConfig {
+        guard let table = value as? [String: Any] else {
+            throw ConfigError.badType("table", keyPath: "experimental")
+        }
+        var errors: [ConfigError] = []
+        let allowed: Set<String> = ["ax-window-id", "multitouch"]
+        for key in table.keys where !allowed.contains(key) {
+            errors.append(.unknownKey("experimental.\(key)"))
+        }
+        var config = ExperimentalConfig.default
+        if let v = table["ax-window-id"] {
+            if let b = v as? Bool { config.axWindowID = b }
+            else { errors.append(.badType("bool", keyPath: "experimental.ax-window-id")) }
+        }
+        if let v = table["multitouch"] {
+            if let b = v as? Bool { config.multitouch = b }
+            else { errors.append(.badType("bool", keyPath: "experimental.multitouch")) }
+        }
+        if !errors.isEmpty { throw ConfigErrorList(errors) }
+        return config
+    }
 
     private static func parseGaps(_ value: Any) throws -> GapsConfig {
         guard let table = value as? [String: Any] else {

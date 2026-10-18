@@ -69,11 +69,13 @@ private func loadFixture(_ name: String) throws -> DiscoveryFixture {
     #expect(refs[0].title == "main.ts — lattice")
 }
 
-@Test func experimentalAxWindowIDStubOff() {
-    #expect(ExperimentalAXWindowID.cgWindowIDIfEnabled(flags: .default) == nil)
+@Test func experimentalFlagsOffByDefault() {
+    #expect(ExperimentalFlags.default.axWindowID == false)
+    #expect(ExperimentalFlags.default.multitouch == false)
+    #expect(ExperimentalAXWindowID.isRequested(.default) == false)
     var flags = ExperimentalFlags()
     flags.axWindowID = true
-    #expect(ExperimentalAXWindowID.cgWindowIDIfEnabled(flags: flags) == nil)
+    #expect(ExperimentalAXWindowID.isRequested(flags) == true)
 }
 
 @Test func fakePlatformRecordsFrames() async throws {

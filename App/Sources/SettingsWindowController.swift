@@ -59,8 +59,16 @@ final class SettingsWindowController: NSWindowController {
         buttons.spacing = 8
         buttons.translatesAutoresizingMaskIntoConstraints = false
 
+        let note = NSTextField(wrappingLabelWithString:
+            "Lattice extension: [experimental] ax-window-id and multitouch are off by default; unavailable private APIs auto-disable."
+        )
+        note.font = NSFont.systemFont(ofSize: NSFont.smallSystemFontSize)
+        note.textColor = .secondaryLabelColor
+        note.translatesAutoresizingMaskIntoConstraints = false
+
         content.addSubview(scroll)
         content.addSubview(buttons)
+        content.addSubview(note)
 
         NSLayoutConstraint.activate([
             buttons.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
@@ -70,7 +78,11 @@ final class SettingsWindowController: NSWindowController {
             scroll.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
             scroll.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
             scroll.topAnchor.constraint(equalTo: buttons.bottomAnchor, constant: 8),
-            scroll.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
+            scroll.bottomAnchor.constraint(equalTo: note.topAnchor, constant: -8),
+
+            note.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 12),
+            note.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -12),
+            note.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -12),
         ])
     }
 

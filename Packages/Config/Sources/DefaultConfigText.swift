@@ -110,6 +110,11 @@ public enum DefaultConfigText {
         ctrl-alt-k = 'dock up'
         ctrl-alt-l = 'dock right'
 
+        # Lattice extension: optional private-API paths (off by default; auto-disable on failure).
+        [experimental]
+        ax-window-id = false
+        multitouch = false
+
         # Optional tables (defaults apply when omitted):
         # [animations] enabled = true, duration-ms = 300
         # [drag] placeholders = true

@@ -17,6 +17,8 @@ import LayoutModel
     #expect(c.modifiers.pinchModifier.control == true && c.modifiers.pinchModifier.option == true)
     #expect(c.modes["main"] != nil)
     #expect(c.modes["main"]!.bindings.count >= 30)
+    #expect(c.experimental.axWindowID == false)
+    #expect(c.experimental.multitouch == false)
 }
 
 @Test func defaultFileParses() throws {
@@ -24,11 +26,24 @@ import LayoutModel
     #expect(config.startAtLogin == true)
     #expect(config.workspaces == 1)
     #expect(config.modes["main"]?.bindings.isEmpty == false)
+    #expect(config.experimental.axWindowID == false)
+    #expect(config.experimental.multitouch == false)
 
     let chords = Set(config.modes["main"]!.bindings.map(\.chord.description))
     #expect(chords.contains("alt-h"))
     #expect(chords.contains("alt-shift-space"))
     #expect(chords.contains("ctrl-alt-l"))
+}
+
+@Test func experimentalSectionParses() throws {
+    let text = """
+    [experimental]
+    ax-window-id = true
+    multitouch = true
+    """
+    let config = try ConfigParser.parse(text: text)
+    #expect(config.experimental.axWindowID == true)
+    #expect(config.experimental.multitouch == true)
 }
 
 @Test func unknownKeyErrorsWithPath() {

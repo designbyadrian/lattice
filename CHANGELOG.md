@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Experimental flags (`[experimental]` in `lattice.toml`): optional `ax-window-id` (`_AXUIElementGetWindow` shortcut) and `multitouch` (raw MultitouchSupport path); both off by default with runtime auto-disable.
 - Native permissions onboarding (Welcome → Accessibility → Input Monitoring note → optional Screen Recording → tutorial).
 - Sparkle 2 updater integration (automatic checks toggle; EdDSA public key placeholder in Info.plist).
 - GitHub Actions release workflow on version tags (arm64 build, release-strings gate; sign/notarize/DMG/appcast placeholders).

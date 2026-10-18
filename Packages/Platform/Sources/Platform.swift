@@ -5,12 +5,11 @@ public enum PlatformModule {
     public static let name = "Platform"
 }
 
-/// Stub for the private `_AXUIElementGetWindow` path (P10). Always returns nil until implemented.
+/// Soft gate for the private `_AXUIElementGetWindow` path (P10).
+/// Resolution lives in `PlatformMac` (`AXWindowIDShortcut`); public CG matching is always the fallback.
 public enum ExperimentalAXWindowID {
-    /// Returns a CGWindowID only when `flags.axWindowID` is on **and** a future shim is present.
-    public static func cgWindowIDIfEnabled(flags: ExperimentalFlags) -> UInt32? {
-        guard flags.axWindowID else { return nil }
-        // P10: call private shim here. Intentionally unimplemented.
-        return nil
+    /// Whether the private AX→CGWindowID shortcut is requested (config / flags).
+    public static func isRequested(_ flags: ExperimentalFlags) -> Bool {
+        flags.axWindowID
     }
 }

@@ -120,6 +120,23 @@
     "tabs": {
       "type": "object",
       "description": "Lattice-only table (extension)."
+    },
+    "experimental": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Lattice extension: optional private-API paths (off by default; runtime may auto-disable).",
+      "properties": {
+        "ax-window-id": {
+          "type": "boolean",
+          "default": false,
+          "description": "Optional _AXUIElementGetWindow shortcut; falls back to public CGWindowList matching."
+        },
+        "multitouch": {
+          "type": "boolean",
+          "default": false,
+          "description": "Raw MultitouchSupport path; safe no-op when symbols are unavailable."
+        }
+      }
     }
   },
   "$defs": {

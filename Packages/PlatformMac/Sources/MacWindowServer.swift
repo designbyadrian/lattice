@@ -1,15 +1,19 @@
 import AppKit
 import ApplicationServices
+import Config
 import Foundation
 import Platform
 
 /// Concrete `WindowServerProtocol` for the menu-bar app (App wires this; AppCore never imports it).
 public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
-    public var experimentalFlags: ExperimentalFlags
+    public var experimentalFlags: ExperimentalFlags {
+        didSet { syncExperimentalSessions() }
+    }
     public let permissions: MacPermissions
     public let spacesController: any SpacesControlling
     public let frameAnimator: any FrameAnimating
     public let overviewPresenter: any OverviewPresenting
+    public let multitouchSession: ExperimentalMultitouchSession
 
     private let writer: MacWindowWriter
     private let workspaceObservers = MacWorkspaceObservers()
@@ -22,11 +26,13 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
         permissions: MacPermissions = MacPermissions(),
         writer: MacWindowWriter = .shared,
         spacesController: MacSpacesController? = nil,
-        overviewPresenter: MacOverviewPresenter? = nil
+        overviewPresenter: MacOverviewPresenter? = nil,
+        multitouchSession: ExperimentalMultitouchSession = ExperimentalMultitouchSession()
     ) {
         self.experimentalFlags = experimentalFlags
         self.permissions = permissions
         self.writer = writer
+        self.multitouchSession = multitouchSession
         self.spacesController = spacesController ?? MacSpacesController()
         let animator = DisplayLinkAnimator { [writer] target in
             try await writer.setFrame(target.frame, for: target.windowID, pid: target.pid)
@@ -35,6 +41,23 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
         let overview = overviewPresenter ?? MacOverviewPresenter()
         overview.screenRecordingGranted = { permissions.hasScreenRecordingAccess }
         self.overviewPresenter = overview
+        syncExperimentalSessions()
+    }
+
+    /// Applies config-derived flags and re-syncs experimental sessions (may auto-disable).
+    public func applyExperimentalConfig(_ config: ExperimentalConfig) {
+        experimentalFlags = ExperimentalFlags(
+            axWindowID: config.axWindowID,
+            multitouch: config.multitouch
+        )
+    }
+
+    private func syncExperimentalSessions() {
+        var flags = experimentalFlags
+        multitouchSession.sync(flags: &flags)
+        if flags != experimentalFlags {
+            experimentalFlags = flags
+        }
     }
 
     public var accessibilityReduceMotion: Bool {
@@ -50,7 +73,12 @@ public final class MacWindowServer: WindowServerProtocol, @unchecked Sendable {
     }
 
     public func listWindows() async -> [Platform.WindowRef] {
-        MacWindowDiscovery.listManagedWindows(experimentalFlags: experimentalFlags)
+        var flags = experimentalFlags
+        let refs = MacWindowDiscovery.listManagedWindows(experimentalFlags: &flags)
+        if flags != experimentalFlags {
+            experimentalFlags = flags
+        }
+        return refs
     }
 
     public func listDisplays() async -> [DisplayRef] {

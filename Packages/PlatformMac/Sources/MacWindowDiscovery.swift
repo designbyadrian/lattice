@@ -4,23 +4,95 @@ import CoreGraphics
 import Foundation
 import Platform
 
+/// Live AX element + attribute snapshot (needed for the optional AX window-id shortcut).
+public struct AXWindowLive: @unchecked Sendable {
+    public var element: AXUIElement
+    public var snapshot: AXWindowInfoSnapshot
+
+    public init(element: AXUIElement, snapshot: AXWindowInfoSnapshot) {
+        self.element = element
+        self.snapshot = snapshot
+    }
+}
+
 /// CGWindowList + AX discovery with public-route matching.
 public enum MacWindowDiscovery {
     /// Messaging timeout applied to each AX application element (~0.25 s per PLAN §6).
     public static let axMessagingTimeout: Float = 0.25
 
     public static func listManagedWindows(
-        experimentalFlags: ExperimentalFlags = .default
+        experimentalFlags: inout ExperimentalFlags,
+        axSymbols: any AXWindowIDSymbolLooking = AXWindowIDSymbolTable.shared
     ) -> [Platform.WindowRef] {
         let cgSnapshots = copyCGWindowSnapshots()
-        let axSnapshots = copyAXWindowSnapshots(timeout: axMessagingTimeout)
-        _ = experimentalFlags // `axWindowID` fallback reserved for P10 via ExperimentalAXWindowID
-        return WindowDiscoveryFilter.discoverWindows(
+        let axLives = copyAXWindowLives(timeout: axMessagingTimeout)
+        return discoverManagedWindows(
             cgWindows: cgSnapshots,
-            axWindows: axSnapshots,
+            axLives: axLives,
+            experimentalFlags: &experimentalFlags,
+            axSymbols: axSymbols,
             bundleIDForPID: bundleID(for:),
             appNameForPID: appName(for:)
         )
+    }
+
+    /// Pure-ish discovery used by tests (injectable AX lives + symbol table).
+    public static func discoverManagedWindows(
+        cgWindows: [CGWindowInfoSnapshot],
+        axLives: [AXWindowLive],
+        experimentalFlags: inout ExperimentalFlags,
+        axSymbols: any AXWindowIDSymbolLooking = AXWindowIDSymbolTable.shared,
+        bundleIDForPID: (Int32) -> String? = { _ in nil },
+        appNameForPID: (Int32) -> String? = { _ in nil }
+    ) -> [Platform.WindowRef] {
+        let cg = WindowDiscoveryFilter.filterCGWindows(cgWindows)
+        let manageable = axLives.filter { WindowDiscoveryFilter.isManageableAXWindow($0.snapshot) }
+        var refs: [Platform.WindowRef] = []
+        var usedCG = Set<UInt32>()
+        let cgByID = Dictionary(uniqueKeysWithValues: cg.map { ($0.windowNumber, $0) })
+
+        for live in manageable {
+            var matchedID: UInt32?
+
+            if experimentalFlags.axWindowID {
+                if let shortcutID = AXWindowIDShortcut.cgWindowID(
+                    for: live.element,
+                    flags: &experimentalFlags,
+                    symbols: axSymbols
+                ),
+                    let snap = cgByID[shortcutID],
+                    !usedCG.contains(shortcutID),
+                    WindowDiscoveryFilter.isCandidateCGWindow(snap)
+                {
+                    matchedID = shortcutID
+                }
+            }
+
+            if matchedID == nil {
+                if let matched = WindowDiscoveryFilter.matchCGWindow(for: live.snapshot, in: cg),
+                   !usedCG.contains(matched.windowNumber)
+                {
+                    matchedID = matched.windowNumber
+                }
+            }
+
+            guard let id = matchedID, let cgSnap = cgByID[id] else { continue }
+            usedCG.insert(id)
+            refs.append(
+                WindowRef(
+                    id: id,
+                    pid: live.snapshot.pid,
+                    bundleID: bundleIDForPID(live.snapshot.pid),
+                    appName: appNameForPID(live.snapshot.pid) ?? cgSnap.ownerName,
+                    title: live.snapshot.title,
+                    frame: cgSnap.bounds,
+                    isMinimized: live.snapshot.isMinimized,
+                    isFullscreen: live.snapshot.isFullscreen,
+                    subrole: live.snapshot.subrole
+                )
+            )
+        }
+        return refs
     }
 
     // MARK: - CG
@@ -62,8 +134,8 @@ public enum MacWindowDiscovery {
 
     // MARK: - AX
 
-    public static func copyAXWindowSnapshots(timeout: Float = axMessagingTimeout) -> [AXWindowInfoSnapshot] {
-        var result: [AXWindowInfoSnapshot] = []
+    public static func copyAXWindowLives(timeout: Float = axMessagingTimeout) -> [AXWindowLive] {
+        var result: [AXWindowLive] = []
         for app in NSWorkspace.shared.runningApplications where !app.isTerminated {
             let pid = app.processIdentifier
             guard pid > 0 else { continue }
@@ -76,11 +148,15 @@ public enum MacWindowDiscovery {
 
             for window in windows {
                 if let snap = snapshot(window: window, pid: pid) {
-                    result.append(snap)
+                    result.append(AXWindowLive(element: window, snapshot: snap))
                 }
             }
         }
         return result
+    }
+
+    public static func copyAXWindowSnapshots(timeout: Float = axMessagingTimeout) -> [AXWindowInfoSnapshot] {
+        copyAXWindowLives(timeout: timeout).map(\.snapshot)
     }
 
     public static func snapshot(window: AXUIElement, pid: Int32) -> AXWindowInfoSnapshot? {

@@ -57,6 +57,8 @@ public struct LatticeConfig: Sendable, Equatable {
     public var hooks: HooksConfig
     /// Parsed `[[rules]]` in file order.
     public var rules: [WindowRule]
+    /// Lattice extension: `[experimental]` private-API flags (off by default).
+    public var experimental: ExperimentalConfig
 
     public init(
         startAtLogin: Bool = true,
@@ -76,7 +78,8 @@ public struct LatticeConfig: Sendable, Equatable {
         animations: AnimationsConfig = .default,
         drag: DragConfig = .default,
         hooks: HooksConfig = .default,
-        rules: [WindowRule] = []
+        rules: [WindowRule] = [],
+        experimental: ExperimentalConfig = .default
     ) {
         self.startAtLogin = startAtLogin
         self.workspaces = workspaces
@@ -96,6 +99,7 @@ public struct LatticeConfig: Sendable, Equatable {
         self.drag = drag
         self.hooks = hooks
         self.rules = rules
+        self.experimental = experimental
     }
 
     public static let `default` = LatticeConfig()
