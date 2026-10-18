@@ -222,7 +222,17 @@ public final class AppCoordinator: @unchecked Sendable {
             await joinFocused(with: direction)
         case .split(let axis):
             await splitFocused(axis: axis)
-        case .focus, .move, .resize, .balanceSizes, .flattenWorkspaceTree, .layoutCycle, .list, .execAndForget, .enable:
+        case .focus(let direction):
+            await focusNeighbor(direction)
+        case .move(let direction):
+            await moveFocused(direction)
+        case .resize(let axis, let delta):
+            await resizeFocused(axis: axis, delta: delta)
+        case .balanceSizes:
+            await balanceSizes()
+        case .flattenWorkspaceTree:
+            await flattenWorkspaceTree()
+        case .layoutCycle, .list, .execAndForget, .enable:
             break
         }
     }
@@ -1227,15 +1237,131 @@ public final class AppCoordinator: @unchecked Sendable {
     }
 
     private func dockFocused(direction: CommandDirection, screen: Bool) async {
+        guard allowLayoutHotkey() else { return }
         guard let id = queue.sync(execute: { focusedWindowID }) else { return }
-        let target: DropTarget = screen
-            ? .screenEdge(direction.edge)
-            : .screenEdge(direction.edge)
+        let target: DropTarget = queue.sync {
+            if screen {
+                return .screenEdge(direction.edge)
+            }
+            if let other = neighbour(of: id, direction: direction),
+               let path = path(to: other) {
+                return .edge(nodePath: path, edge: direction.edge)
+            }
+            return .screenEdge(direction.edge)
+        }
         mutateWorkspaceContaining(id) { ws in
             let (next, _) = ws.docking(id, at: target)
             return next
         }
         await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    private func focusNeighbor(_ direction: CommandDirection) async {
+        guard allowLayoutHotkey() else { return }
+        guard let id = queue.sync(execute: { focusedWindowID }) else { return }
+        guard let next = queue.sync(execute: { neighbour(of: id, direction: direction) }) else { return }
+        queue.sync { focusedWindowID = next }
+        if let handler = focusWindowHandler {
+            await handler(next)
+        }
+        publishTabGroups()
+        await runHooks(config.hooks.focusChanged, source: .hook)
+    }
+
+    private func moveFocused(_ direction: CommandDirection) async {
+        guard allowLayoutHotkey() else { return }
+        guard let id = queue.sync(execute: { focusedWindowID }) else { return }
+        let target: DropTarget = queue.sync {
+            if let other = neighbour(of: id, direction: direction),
+               let path = path(to: other) {
+                return .edge(nodePath: path, edge: direction.edge)
+            }
+            return .screenEdge(direction.edge)
+        }
+        mutateWorkspaceContaining(id) { ws in
+            let (next, _) = ws.moving(id, to: target)
+            return next
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    private func resizeFocused(axis: ResizeAxis, delta: Int) async {
+        guard allowLayoutHotkey() else { return }
+        guard let id = queue.sync(execute: { focusedWindowID }) else { return }
+        // Map point delta to a small ratio step (~2% per 10 points).
+        let step = Double(delta) / 500.0
+        mutateWorkspaceContaining(id) { ws in
+            guard let path = ws.root.path(to: id), path.count >= 1 else { return ws }
+            let parentPath = Array(path.dropLast())
+            let childIndex = path.last!
+            guard case .split(let split) = ws.root.node(at: parentPath) else { return ws }
+
+            let axisMatches: Bool
+            switch axis {
+            case .smart:
+                axisMatches = true
+            case .width:
+                axisMatches = split.axis == .horizontal
+            case .height:
+                axisMatches = split.axis == .vertical
+            }
+            guard axisMatches else { return ws }
+
+            let dividerIndex: Int
+            if childIndex + 1 < split.children.count {
+                dividerIndex = childIndex
+            } else if childIndex > 0 {
+                dividerIndex = childIndex - 1
+            } else {
+                return ws
+            }
+            let signed: Double
+            if childIndex + 1 < split.children.count {
+                signed = step
+            } else {
+                signed = -step
+            }
+            let (next, _) = ws.resizing(path: parentPath, dividerIndex: dividerIndex, delta: signed)
+            return next
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    private func balanceSizes() async {
+        guard allowLayoutHotkey() else { return }
+        queue.sync {
+            for (uuid, var layout) in displayLayouts {
+                let num = activeWorkspaceNumber[uuid] ?? 1
+                let ws = layout.workspaces[num] ?? .empty
+                let (next, _) = ws.balancingSizes()
+                layout.workspaces[num] = next
+                displayLayouts[uuid] = layout
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    private func flattenWorkspaceTree() async {
+        guard allowLayoutHotkey() else { return }
+        queue.sync {
+            for (uuid, var layout) in displayLayouts {
+                let num = activeWorkspaceNumber[uuid] ?? 1
+                let ws = layout.workspaces[num] ?? .empty
+                let (next, _) = ws.flatteningTree()
+                layout.workspaces[num] = next
+                displayLayouts[uuid] = layout
+            }
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
+    }
+
+    private func path(to id: WindowID) -> NodePath? {
+        for layout in displayLayouts.values {
+            for ws in layout.workspaces.values {
+                if let path = ws.root.path(to: id) { return path }
+            }
+        }
+        return nil
     }
 
     private func tabWith(_ target: TabTarget) async {
@@ -1347,8 +1473,13 @@ public final class AppCoordinator: @unchecked Sendable {
     }
 
     private func splitFocused(axis: Axis) async {
-        // Next new window will dock beside focused; record intent via a pending split marker not required for P8 AC.
-        _ = axis
+        guard allowLayoutHotkey() else { return }
+        guard let id = queue.sync(execute: { focusedWindowID }) else { return }
+        mutateWorkspaceContaining(id) { ws in
+            let (next, _) = ws.splitting(id, axis: axis)
+            return next
+        }
+        await applySolvedFrames(animated: true, useCamera: true)
     }
 
     private func findWindow(bundleID: String) async -> WindowID? {

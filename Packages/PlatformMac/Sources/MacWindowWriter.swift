@@ -1,3 +1,4 @@
+import AppKit
 import ApplicationServices
 import CoreGraphics
 import Foundation
@@ -86,6 +87,37 @@ public final class MacWindowWriter: @unchecked Sendable {
         let err = AXUIElementSetAttributeValue(element, kAXPositionAttribute as CFString, ax)
         guard err == .success else {
             throw WindowServerError.axFailure(message: "set position \(err.rawValue)")
+        }
+    }
+
+    /// Raise and focus a window via AX (used by `focus <dir>` / focus-follows-mouse).
+    public func raise(windowID: UInt32, pid: Int32) async {
+        guard AXIsProcessTrusted() else { return }
+        let timeout = messagingTimeout
+        let appQueue = queue(for: pid)
+        await withCheckedContinuation { (cont: CheckedContinuation<Void, Never>) in
+            appQueue.async {
+                if let app = NSRunningApplication(processIdentifier: pid) {
+                    app.activate()
+                }
+                if let element = MacWindowDiscovery.axElement(
+                    windowID: windowID, pid: pid, timeout: timeout
+                ) {
+                    AXUIElementSetMessagingTimeout(element, timeout)
+                    AXUIElementPerformAction(element, kAXRaiseAction as CFString)
+                    AXUIElementSetAttributeValue(
+                        element,
+                        kAXMainAttribute as CFString,
+                        kCFBooleanTrue
+                    )
+                    AXUIElementSetAttributeValue(
+                        element,
+                        kAXFocusedAttribute as CFString,
+                        kCFBooleanTrue
+                    )
+                }
+                cont.resume()
+            }
         }
     }
 }

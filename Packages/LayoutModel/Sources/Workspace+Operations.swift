@@ -264,6 +264,57 @@ extension Workspace {
         let changed = before != next.root
         return (next, LayoutDiff(normalized: changed))
     }
+
+    /// Equalize ratios on every split in the tree (Dinky `balance-sizes`).
+    public func balancingSizes() -> (Workspace, LayoutDiff) {
+        var next = self
+        let before = next.root
+        next.root = next.root.balancingSizes()
+        let changed = before != next.root
+        return (next, LayoutDiff(ratiosChanged: changed))
+    }
+
+    /// Flatten nested same-axis splits via normalize (Dinky `flatten-workspace-tree`).
+    public func flatteningTree() -> (Workspace, LayoutDiff) {
+        normalized()
+    }
+
+    /// Wrap `window`'s leaf in a split along `axis` with a desktop sibling (pending next insert).
+    public func splitting(_ window: WindowID, axis: Axis) -> (Workspace, LayoutDiff) {
+        guard let path = root.path(to: window),
+              let node = root.node(at: path) else {
+            return (self, .empty)
+        }
+        var next = self
+        let split = SplitNode.equal(axis: axis, children: [node, .desktop])
+        if let updated = next.root.replacing(at: path, with: .split(split)) {
+            next.root = updated
+        }
+        var diff = LayoutDiff(ratiosChanged: true)
+        let (normalized, normDiff) = next.normalized()
+        next = normalized
+        diff.merge(normDiff)
+        return (next, diff)
+    }
+}
+
+extension Node {
+    /// Recursively equalize split ratios.
+    func balancingSizes() -> Node {
+        switch self {
+        case .desktop, .panel:
+            return self
+        case .tabs:
+            return self
+        case .split(var split):
+            split.children = split.children.map { $0.balancingSizes() }
+            let n = split.children.count
+            if n > 0 {
+                split.ratios = Array(repeating: 1.0 / Double(n), count: n)
+            }
+            return .split(split)
+        }
+    }
 }
 
 // MARK: - Node helpers used by operations
